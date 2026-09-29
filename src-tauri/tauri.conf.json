@@ -26,6 +26,20 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "publisher": "Git Context",
+    "homepage": "https://github.com/PandyaPreet/GitContext",
+    "category": "DeveloperTool",
+    "shortDescription": "A local developer identity control center",
+    "longDescription": "Switch between GitHub and GitLab identities per repository. Git Context manages Git author details, SSH keys and SSH host aliases locally, previews every change and lets you undo it.",
+    "copyright": "Copyright © 2026 Git Context contributors",
+    "macOS": {
+      "minimumSystemVersion": "10.15",
+      "signingIdentity": "-"
+    },
+    "linux": {
+      "deb": { "section": "devel" },
+      "rpm": { "release": "1" }
+    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

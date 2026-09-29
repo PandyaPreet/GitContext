@@ -8,6 +8,9 @@ src-tauri/gen/
 test-results/
 playwright-report/
 *.md
+!README.md
+!CHANGELOG.md
+!.github/**/*.md
 # AI / Agent configuration
 AGENTS.md
 CLAUDE.md

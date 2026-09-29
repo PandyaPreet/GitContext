@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "A local developer identity control center"
 edition = "2021"
 rust-version = "1.85"
+default-run = "git-context"
 
 [lib]
 name = "git_context_lib"

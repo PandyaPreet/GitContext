@@ -1,0 +1,19 @@
+node_modules/
+dist/
+src-tauri/target/
+.DS_Store
+*.log
+*.tsbuildinfo
+src-tauri/gen/
+test-results/
+playwright-report/
+*.md
+# AI / Agent configuration
+AGENTS.md
+CLAUDE.md
+.claude/
+.claude/**
+
+# Optional local AI/editor configs
+.cursor/
+.copilot/

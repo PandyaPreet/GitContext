@@ -45,12 +45,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if ! gh release view "$TAG" >/dev/null 2>&1; then
-            gh release create "$TAG" --draft --verify-tag \
-              --title "Git Context ${TAG}" \
-              --notes-file .github/RELEASE_NOTES.md
+          # Take the id from the create response; a freshly created draft can lag in the list endpoint.
+          id=$(gh api --paginate "repos/${{ github.repository }}/releases" --jq ".[] | select(.tag_name == \"$TAG\") | .id" | head -n1)
+          if [ -z "$id" ]; then
+            id=$(gh api -X POST "repos/${{ github.repository }}/releases" \
+              -f tag_name="$TAG" -f name="Git Context ${TAG}" -F draft=true \
+              -F body=@.github/RELEASE_NOTES.md --jq .id)
           fi
-          id=$(gh api "repos/${{ github.repository }}/releases" --jq ".[] | select(.tag_name == \"$TAG\") | .id" | head -n1)
+          # tauri-action silently skips uploads without a release id.
+          [ -n "$id" ] || { echo "::error::Could not resolve release id for $TAG"; exit 1; }
           echo "release_id=$id" >> "$GITHUB_OUTPUT"
 
   build:

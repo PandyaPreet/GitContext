@@ -120,12 +120,14 @@ pub fn validate_config(text: &str, profile: &Profile, directory: &Path) -> Resul
         tempfile::NamedTempFile::new_in(directory).map_err(|_| "Cannot stage SSH configuration")?;
     temp.write_all(text.as_bytes())
         .map_err(|_| "Cannot stage SSH configuration")?;
+    // Close the write handle first: Windows OpenSSH opens config files without write sharing.
+    let temp = temp.into_temp_path();
     let out = process::run(
         "ssh",
         &[
             "-G",
             "-F",
-            temp.path().to_str().ok_or("Invalid config path")?,
+            temp.to_str().ok_or("Invalid config path")?,
             &profile.ssh_alias,
         ],
         None,

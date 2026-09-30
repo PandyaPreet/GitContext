@@ -1,7 +1,12 @@
 // CI-only overlay: no signing secret is ever written into frontend/config files.
 import { writeFileSync } from "node:fs";
 const pubkey = process.env.TAURI_UPDATER_PUBLIC_KEY?.trim();
-if (!pubkey || !process.env.TAURI_SIGNING_PRIVATE_KEY) {
+const privateKey = process.env.TAURI_SIGNING_PRIVATE_KEY;
+if (!pubkey && !privateKey) {
+  console.log("Updater signing not configured; building without signed updates.");
+  process.exit(0);
+}
+if (!pubkey || !privateKey) {
   throw new Error(
     "Set TAURI_UPDATER_PUBLIC_KEY (repository variable) and TAURI_SIGNING_PRIVATE_KEY (repository secret) before releasing signed updates.",
   );

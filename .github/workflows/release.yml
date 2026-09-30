@@ -61,7 +61,7 @@ jobs:
     needs: create-release
     strategy:
       fail-fast: false
-      max-parallel: 1
+      max-parallel: ${{ vars.TAURI_UPDATER_PUBLIC_KEY != '' && 1 || 6 }}
       matrix:
         include:
           - name: macOS (Apple Silicon)
@@ -132,6 +132,6 @@ jobs:
           NO_STRIP: ${{ runner.os == 'Linux' && 'true' || '' }}
         with:
           releaseId: ${{ needs.create-release.outputs.release_id }}
-          args: ${{ matrix.args }} --config src-tauri/tauri.updater.conf.json
-          uploadUpdaterJson: true
+          args: ${{ matrix.args }}${{ vars.TAURI_UPDATER_PUBLIC_KEY != '' && ' --config src-tauri/tauri.updater.conf.json' || '' }}
+          uploadUpdaterJson: ${{ vars.TAURI_UPDATER_PUBLIC_KEY != '' }}
           updaterJsonPreferNsis: true

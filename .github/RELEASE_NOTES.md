@@ -2,6 +2,15 @@
 
 Git Context is a small desktop app for developers who use more than one GitHub or GitLab account: work and personal, several clients, open source. It sets the right name, email and SSH key for each repository, so you stop pushing commits as the wrong person.
 
+### What's new in 0.1.1
+
+- **Generate SSH keys in-app.** Checks your GitHub or GitLab username, creates an Ed25519 key, and opens your provider's SSH settings so you can paste it.
+- **Identity health check.** Spots missing keys, author/SSH conflicts and configuration changed outside the app, and offers **Reapply** for drift.
+- **Verify active identity.** Confirms the global author, managed SSH configuration and key authentication in one step.
+- **Quick switcher.** Press `Cmd+Shift+G` / `Ctrl+Shift+G` to switch profiles from a compact picker.
+- **Profile colours everywhere.** Sidebar, avatar and tray icon follow the active profile; macOS also shows its name in the menu bar.
+- **Fixes.** SSH configuration checks now work on Windows.
+
 ### Highlights
 
 - **Profiles for every identity.** GitHub and GitLab, including self-hosted hosts and custom SSH ports.

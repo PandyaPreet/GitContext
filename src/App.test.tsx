@@ -113,6 +113,21 @@ beforeEach(() => {
   mocks.invoke.mockImplementation(
     async (command: string, args: Record<string, unknown>) => {
       switch (command) {
+        case "configuration_health":
+          return {
+            profileId: saved.globalProfileId || null,
+            checks: [{ label: "Git author", ok: true, detail: "Matches" }],
+          };
+        case "shortcut_status":
+          return null;
+        case "updater_ready":
+          return false;
+        case "verify_active_identity":
+          return {
+            success: true,
+            authenticatedAs: "alice",
+            message: "SSH authentication succeeded",
+          };
         case "snapshot":
           return structuredClone(saved);
         case "detect_environment":
@@ -336,13 +351,9 @@ it("keeps the active identity unchanged until activation succeeds and blocks rep
     await screen.findByRole("region", { name: "Current active profile" }),
   );
   await region.findByRole("heading", { name: "Personal" });
-  await user.click(
-    screen.getByRole("button", { name: "Activate" }),
-  );
+  await user.click(screen.getByRole("button", { name: "Activate" }));
   expect(region.getByRole("heading", { name: "Personal" })).toBeInTheDocument();
-  expect(
-    screen.getByRole("button", { name: "Activate" }),
-  ).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Activate" })).toBeDisabled();
   expect(
     mocks.invoke.mock.calls.filter(([c]) => c === "activate_profile"),
   ).toHaveLength(1);
@@ -351,4 +362,25 @@ it("keeps the active identity unchanged until activation succeeds and blocks rep
     "Could not update configuration",
   );
   expect(region.getByRole("heading", { name: "Personal" })).toBeInTheDocument();
+});
+
+it("keeps active and verified separate until the full identity check succeeds", async () => {
+  const user = userEvent.setup();
+  render(<App />);
+  await screen.findByRole("heading", { name: "Profiles" });
+  await user.click(
+    screen.getAllByRole("button", { name: "Activate" })[0],
+  );
+  await screen.findByText(
+    "Work is now active. Your Git identity and SSH key are updated.",
+  );
+  expect(screen.getByText("Identity not verified")).toBeInTheDocument();
+  await user.click(
+    screen.getByRole("button", { name: "Verify active identity" }),
+  );
+  await screen.findByText(/Verified @alice/);
+  expect(mocks.invoke).toHaveBeenCalledWith(
+    "verify_active_identity",
+    undefined,
+  );
 });

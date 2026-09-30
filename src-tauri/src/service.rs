@@ -70,6 +70,89 @@ impl Service {
         ssh::validate_installed(profile, &self.ssh_config_path)
     }
 
+    pub fn health(&self) -> HealthReport {
+        let mut checks = Vec::new();
+        let mut check = |label: &str, result: Result<()>, good: &str| {
+            checks.push(HealthCheck {
+                label: label.into(),
+                ok: result.is_ok(),
+                detail: result.err().unwrap_or_else(|| good.into()),
+            });
+        };
+        let profile = self
+            .data
+            .global_profile_id
+            .as_deref()
+            .filter(|_| self.data.single_profile_mode)
+            .and_then(|id| self.profile(id).ok());
+        if let Some(p) = profile {
+            check(
+                "SSH key",
+                (|| {
+                    ssh::validate_profile(p)?;
+                    if !Path::new(&p.private_key_path).is_file() {
+                        return Err("Selected private key is missing. Restore it or select another profile.".into());
+                    }
+                    let key = detection::inspect_key(Path::new(&p.public_key_path), "")?;
+                    if key.private_path != p.private_key_path {
+                        return Err("Public and private key paths do not match. Edit the profile's key reference.".into());
+                    }
+                    Ok(())
+                })(),
+                "Selected key files are available.",
+            );
+            check(
+                "Git author",
+                global::validate_git(&self.global_git_path, p),
+                "Global name and email match this profile.",
+            );
+            let transport = self.root.join("active-ssh-config");
+            check(
+                "Git SSH command",
+                global::validate_activation_git(&self.global_git_path, &transport),
+                "Git uses the managed SSH transport.",
+            );
+            // Never execute an externally edited SSH config: compare against our
+            // allowlisted transport before asking OpenSSH to resolve anything.
+            let transport_check = (|| {
+                let source = std::fs::read_to_string(&self.ssh_config_path)
+                    .map_err(|_| "SSH configuration is missing or unreadable")?;
+                let expected = global::prepare_transport(&source, p)?;
+                let actual = std::fs::read_to_string(&transport)
+                    .map_err(|_| "Managed SSH transport is missing or unreadable")?;
+                if actual != expected {
+                    return Err("SSH configuration changed outside Git Context. Review the files, then reapply the profile.".into());
+                }
+                ssh::validate_config(&expected, &global::ssh_profile(p), &self.root)
+            })();
+            check(
+                "SSH configuration",
+                transport_check,
+                "Managed transport matches the selected key and host routing.",
+            );
+        } else {
+            check(
+                "Active profile",
+                Err("Activate a profile to check its configuration.".into()),
+                "",
+            );
+        }
+        HealthReport {
+            profile_id: profile.map(|p| p.id.clone()),
+            checks,
+        }
+    }
+
+    pub fn set_color(&mut self, id: &str, color: &str) -> Result<AppData> {
+        if !["mint", "blue", "violet", "amber"].contains(&color) {
+            return Err("Unknown profile colour".into());
+        }
+        self.profile(id)?;
+        let mut next = self.data.clone();
+        next.profiles.iter_mut().find(|p| p.id == id).unwrap().color = color.into();
+        self.commit(next)
+    }
+
     pub fn create_profile(&mut self, mut profile: Profile) -> Result<AppData> {
         profile.id = uuid::Uuid::new_v4().to_string();
         profile.host = profile.host.to_ascii_lowercase();
@@ -1328,5 +1411,48 @@ mod tests {
             .contains("old-ep-key"));
         service.undo(&tx).unwrap();
         assert!(!path.exists());
+    }
+    #[test]
+    fn health_detects_drift_and_missing_keys_without_executing_ssh_rules() {
+        let (_temp, mut service, pid, _) = fixture();
+        let plan = service.plan_activation(&pid).unwrap();
+        service.apply(&plan.id).unwrap();
+        let health = service.health();
+        assert!(
+            health.checks.iter().all(|c| c.ok),
+            "{:?}",
+            health.checks.iter().map(|c| &c.detail).collect::<Vec<_>>()
+        );
+        let transport = service.root.join("active-ssh-config");
+        let marker = service.root.join("must-not-exist");
+        std::fs::write(
+            &transport,
+            format!("Match exec \"touch {}\"\n", marker.display()),
+        )
+        .unwrap();
+        assert!(service
+            .health()
+            .checks
+            .iter()
+            .any(|c| c.label == "SSH configuration" && !c.ok));
+        assert!(!marker.exists());
+        std::fs::remove_file(&service.profile(&pid).unwrap().private_key_path).unwrap();
+        assert!(service
+            .health()
+            .checks
+            .iter()
+            .any(|c| c.label == "SSH key" && !c.ok));
+    }
+
+    #[test]
+    fn colour_change_does_not_change_active_configuration() {
+        let (_temp, mut service, pid, _) = fixture();
+        let plan = service.plan_activation(&pid).unwrap();
+        service.apply(&plan.id).unwrap();
+        let before = std::fs::read(&service.global_git_path).unwrap();
+        service.set_color(&pid, "amber").unwrap();
+        assert_eq!(service.profile(&pid).unwrap().color, "amber");
+        assert_eq!(std::fs::read(&service.global_git_path).unwrap(), before);
+        assert!(service.set_color(&pid, "unknown").is_err());
     }
 }

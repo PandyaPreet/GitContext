@@ -12,6 +12,8 @@ import {
   Loader2,
   CheckCircle2,
 } from "lucide-react";
+import { IdentityHealth } from "./components/identity-health";
+import { Updates } from "./components/updates";
 import { useWorkspace } from "./hooks/use-workspace";
 import { api, native } from "./lib/api";
 import type { Plan, Profile } from "./lib/types";
@@ -136,7 +138,7 @@ export default function App() {
                     aria-label="Switch profile"
                     disabled={!enabled}
                   >
-                    <span className="avatar">
+                    <span className={`avatar color-${active?.color || "mint"}`}>
                       {active?.name.slice(0, 1) || "—"}
                     </span>
                     <span className="sidebar-profile-copy">
@@ -203,7 +205,7 @@ export default function App() {
             <main>
               <div className="content-container">
                 <section
-                  className={`active-context ${active ? "is-active" : ""}`}
+                  className={`active-context color-${active?.color || "mint"} ${active ? "is-active" : ""}`}
                   aria-label="Current active profile"
                 >
                   <div className="active-context-mark">
@@ -253,6 +255,12 @@ export default function App() {
                     </Button>
                   )}
                 </section>
+                <IdentityHealth
+                  workspace={w}
+                  active={active}
+                  activate={activate}
+                />
+                <Updates />
                 {!native && (
                   <div className="preview-banner">
                     Browser preview · Open the desktop app to access Git and

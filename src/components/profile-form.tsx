@@ -110,6 +110,19 @@ export function ProfileForm({
             }}
           />
         </Field>
+        <Field label="Profile colour">
+          <Select
+            value={profile.color}
+            onChange={(e) =>
+              update("color", e.target.value as Profile["color"])
+            }
+          >
+            <option value="mint">Mint</option>
+            <option value="blue">Blue</option>
+            <option value="violet">Violet</option>
+            <option value="amber">Amber</option>
+          </Select>
+        </Field>
         <Field label="Provider">
           <Select
             value={customHost ? "self-hosted" : profile.provider}

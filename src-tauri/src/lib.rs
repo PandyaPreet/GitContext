@@ -15,6 +15,13 @@ use service::Service;
 use std::sync::{Arc, Mutex};
 use tauri::{Emitter, Manager, State};
 use tauri_plugin_dialog::DialogExt;
+use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
+struct ShortcutStatus(Option<String>);
+#[tauri::command]
+fn shortcut_status(state: State<'_, ShortcutStatus>) -> Option<String> {
+    state.0.clone()
+}
+
 type Shared = Arc<Mutex<Service>>;
 
 async fn work<T: Send + 'static>(
@@ -35,6 +42,57 @@ async fn work<T: Send + 'static>(
 #[tauri::command]
 async fn snapshot(state: State<'_, Shared>) -> Result<AppData> {
     work(&state, |s| Ok(s.data.clone())).await
+}
+#[tauri::command]
+async fn configuration_health(state: State<'_, Shared>) -> Result<HealthReport> {
+    work(&state, |s| Ok(s.health())).await
+}
+#[tauri::command]
+async fn verify_active_identity(state: State<'_, Shared>) -> Result<Verification> {
+    work(&state, |s| {
+        let report = s.health();
+        if report.checks.iter().any(|c| !c.ok) {
+            return Err(
+                "Configuration needs attention. Run the health check before verifying.".into(),
+            );
+        }
+        let id = report.profile_id.ok_or("No active profile")?;
+        let result = ssh::verify(s.profile(&id)?)?;
+        // The same service/config lock covers checks and authentication.
+        if s.health().checks.iter().any(|c| !c.ok) {
+            return Err("Configuration changed during verification. Check again.".into());
+        }
+        Ok(result)
+    })
+    .await
+}
+#[tauri::command]
+async fn set_profile_color(
+    app: tauri::AppHandle,
+    state: State<'_, Shared>,
+    profile_id: String,
+    color: String,
+) -> Result<AppData> {
+    let data = work(&state, move |s| s.set_color(&profile_id, &color)).await?;
+    let _ = refresh_tray(&app, &data);
+    let _ = app.emit("context-changed", &data);
+    Ok(data)
+}
+#[tauri::command]
+fn dismiss_switcher(app: tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window("switcher") {
+        let _ = window.hide();
+    }
+}
+#[tauri::command]
+fn updater_ready(app: tauri::AppHandle) -> bool {
+    app.config()
+        .plugins
+        .0
+        .get("updater")
+        .and_then(|v| v.get("pubkey"))
+        .and_then(|v| v.as_str())
+        .is_some_and(|s| !s.is_empty())
 }
 #[tauri::command]
 async fn detect_environment() -> Result<Detection> {
@@ -317,6 +375,32 @@ fn show(app: &tauri::AppHandle) {
         let _ = window.set_focus();
     }
 }
+fn tray_image(color: &str) -> tauri::image::Image<'static> {
+    let rgb = match color {
+        "blue" => [100, 165, 255],
+        "violet" => [179, 145, 255],
+        "amber" => [244, 183, 74],
+        _ => [119, 221, 177],
+    };
+    let mut pixels = vec![0; 22 * 22 * 4];
+    for y in 3..19 {
+        for x in 3..19 {
+            if x < 6 || !(6..=15).contains(&y) || (x > 12 && y > 9) {
+                pixels[(y * 22 + x) * 4..(y * 22 + x) * 4 + 4]
+                    .copy_from_slice(&[rgb[0], rgb[1], rgb[2], 255]);
+            }
+        }
+    }
+    tauri::image::Image::new_owned(pixels, 22, 22)
+}
+fn show_switcher(app: &tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window("switcher") {
+        let _ = window.center();
+        let _ = window.show();
+        let _ = window.set_focus();
+        let _ = window.emit("switcher-opened", ());
+    }
+}
 fn refresh_tray(app: &tauri::AppHandle, data: &AppData) -> tauri::Result<()> {
     use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
     let menu = Menu::new(app)?;
@@ -353,6 +437,15 @@ fn refresh_tray(app: &tauri::AppHandle, data: &AppData) -> tauri::Result<()> {
             .find(|p| data.single_profile_mode && Some(&p.id) == data.global_profile_id.as_ref())
             .map(|p| p.name.as_str())
             .unwrap_or("No profile");
+        let color = data
+            .profiles
+            .iter()
+            .find(|p| data.single_profile_mode && Some(&p.id) == data.global_profile_id.as_ref())
+            .map(|p| p.color.as_str())
+            .unwrap_or("mint");
+        tray.set_icon(Some(tray_image(color)))?;
+        #[cfg(target_os = "macos")]
+        tray.set_title(Some(name.chars().take(18).collect::<String>()))?;
         tray.set_tooltip(Some(format!("Git Context · {name}")))?;
     }
     Ok(())
@@ -361,6 +454,8 @@ fn refresh_tray(app: &tauri::AppHandle, data: &AppData) -> tauri::Result<()> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_single_instance::init(|app, _, _| show(app)))
         .plugin(
             tauri_plugin_autostart::Builder::new()
@@ -372,18 +467,30 @@ pub fn run() {
             let service = Service::new(root).map_err(std::io::Error::other)?;
             let data = service.data.clone();
             app.manage(Arc::new(Mutex::new(service)));
-            // Small built-in RGBA tray glyph: no runtime asset dependency.
-            let mut pixels = vec![0_u8; 22 * 22 * 4];
-            for y in 3..19 {
-                for x in 3..19 {
-                    if x < 6 || !(6..=15).contains(&y) || (x > 12 && y > 9) {
-                        let offset = (y * 22 + x) * 4;
-                        pixels[offset..offset + 4].copy_from_slice(&[119, 221, 177, 255]);
-                    }
-                }
-            }
+            tauri::WebviewWindowBuilder::new(
+                app,
+                "switcher",
+                tauri::WebviewUrl::App("index.html?switcher".into()),
+            )
+            .title("Switch Git profile")
+            .inner_size(480.0, 420.0)
+            .resizable(false)
+            .decorations(false)
+            .always_on_top(true)
+            .skip_taskbar(true)
+            .visible(false)
+            .build()?;
+            // A conflict must not prevent the desktop app from launching.
+            let shortcut =
+                app.global_shortcut()
+                    .on_shortcut("CommandOrControl+Shift+G", |app, _, event| {
+                        if event.state == ShortcutState::Pressed {
+                            show_switcher(app);
+                        }
+                    });
+            app.manage(ShortcutStatus(shortcut.err().map(|e| e.to_string())));
             tauri::tray::TrayIconBuilder::with_id("context")
-                .icon(tauri::image::Image::new_owned(pixels, 22, 22))
+                .icon(tray_image("mint"))
                 .on_menu_event(|app, event| {
                     let id = event.id.as_ref();
                     if id == "quit" {
@@ -421,6 +528,9 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
+            if window.label() == "switcher" && matches!(event, tauri::WindowEvent::Focused(false)) {
+                let _ = window.hide();
+            }
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 api.prevent_close();
                 let _ = window.hide();
@@ -428,6 +538,12 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             snapshot,
+            configuration_health,
+            verify_active_identity,
+            set_profile_color,
+            dismiss_switcher,
+            updater_ready,
+            shortcut_status,
             detect_environment,
             import_key,
             create_profile,

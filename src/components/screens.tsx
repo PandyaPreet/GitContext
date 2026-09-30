@@ -53,7 +53,7 @@ export function ProfilesScreen({
               className={`profile-row ${w.data.singleProfileMode && p.id === w.data.globalProfileId ? "active" : ""}`}
             >
               <div
-                className={`avatar ${w.data.singleProfileMode && p.id === w.data.globalProfileId ? "active" : ""}`}
+                className={`avatar color-${p.color} ${w.data.singleProfileMode && p.id === w.data.globalProfileId ? "active" : ""}`}
               >
                 {p.name.slice(0, 1).toUpperCase()}
               </div>
@@ -165,6 +165,23 @@ export function ProfilesScreen({
                     Duplicate profile…
                   </MenuItem>
                   <MenuSeparator />
+                  {(["mint", "blue", "violet", "amber"] as const).map(
+                    (color) => (
+                      <MenuItem
+                        key={color}
+                        selected={p.color === color}
+                        disabled={!enabled}
+                        onSelect={() =>
+                          void w.run("Updating colour", async () => {
+                            w.setData(await api.color(p.id, color));
+                          })
+                        }
+                      >
+                        <span className={`profile-dot color-${color}`} />
+                        {color[0].toUpperCase() + color.slice(1)}
+                      </MenuItem>
+                    ),
+                  )}
                   <MenuItem
                     onSelect={() =>
                       void w.run("Copying SSH alias", () =>

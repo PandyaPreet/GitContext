@@ -278,6 +278,10 @@ pub fn validate_activation_git(path: &Path, transport: &Path) -> Result<()> {
         if actual != expected {
             return Err("Global Git SSH settings differ from the activated profile".into());
         }
+        #[cfg(not(test))]
+        if process::git(&["config", "--global", "--get", key], None)? != expected {
+            return Err("Effective global Git SSH settings differ from this profile. Review GIT_CONFIG_GLOBAL and global includes.".into());
+        }
     }
     Ok(())
 }

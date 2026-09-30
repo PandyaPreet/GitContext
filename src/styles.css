@@ -1611,3 +1611,126 @@ main {
   margin-top: auto;
   flex-shrink: 0;
 }
+
+.color-mint {
+  --profile-color: #77ddb1;
+}
+.color-blue {
+  --profile-color: #64a5ff;
+}
+.color-violet {
+  --profile-color: #b391ff;
+}
+.color-amber {
+  --profile-color: #f4b74a;
+}
+.avatar[class*="color-"] {
+  box-shadow: inset 0 0 0 2px var(--profile-color);
+}
+.active-context[class*="color-"] {
+  border-left: 4px solid var(--profile-color);
+}
+.profile-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--profile-color, #77ddb1);
+  flex-shrink: 0;
+}
+.identity-health,
+.app-tools {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  font-size: 12px;
+}
+.health-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.health-toolbar > span {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+}
+.health-details {
+  padding-top: 12px;
+}
+.health-check {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.health-check span {
+  overflow-wrap: anywhere;
+}
+.app-tools summary {
+  cursor: pointer;
+}
+.release-notes {
+  white-space: pre-wrap;
+  max-height: 220px;
+  overflow: auto;
+  font: inherit;
+}
+.quick-switcher {
+  padding: 18px;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--background);
+}
+.quick-switcher header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.quick-switcher [cmdk-root] {
+  min-height: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.quick-switcher [cmdk-input] {
+  width: 100%;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: inherit;
+  border-radius: 8px;
+  padding: 12px;
+  font: inherit;
+}
+.quick-switcher [cmdk-list] {
+  overflow-y: auto;
+  margin-top: 10px;
+}
+.quick-switcher [cmdk-item] {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.quick-switcher [cmdk-item][data-selected="true"] {
+  background: var(--surface-hover, #33415533);
+}
+.quick-switcher [cmdk-item][data-disabled="true"] {
+  opacity: 0.5;
+  pointer-events: none;
+}
+.quick-switcher small {
+  display: block;
+  opacity: 0.65;
+  margin-top: 4px;
+}
+.quick-switcher footer {
+  padding-top: 12px;
+  opacity: 0.65;
+  font-size: 11px;
+}

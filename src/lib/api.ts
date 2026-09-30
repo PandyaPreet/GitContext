@@ -1,6 +1,7 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import type {
   AppData,
+  HealthReport,
   Detection,
   Plan,
   Profile,
@@ -20,6 +21,13 @@ function call<T>(command: string, args?: Record<string, unknown>): Promise<T> {
   return invoke<T>(command, args);
 }
 export const api = {
+  health: () => call<HealthReport>("configuration_health"),
+  verifyActive: () => call<Verification>("verify_active_identity"),
+  color: (profileId: string, color: string) =>
+    call<AppData>("set_profile_color", { profileId, color }),
+  dismissSwitcher: () => call<void>("dismiss_switcher"),
+  shortcutStatus: () => call<string | null>("shortcut_status"),
+  updaterReady: () => call<boolean>("updater_ready"),
   renameProfile: (profileId: string, name: string) =>
     call<AppData>("rename_profile", { profileId, name }),
   removeProfile: (profileId: string) =>

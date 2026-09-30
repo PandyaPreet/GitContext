@@ -14,3 +14,10 @@ Validation:
 - Native macOS app bundle rebuilt. OS-level maximize animation has not been independently instrumented; the tested improvement is stable app layout across viewport sizes.
 
 The existing launch video predates this UX change and still shows the old confirmation step. Re-record those scenes before using that video to represent this version.
+
+## Profile awareness additions (2026-09-30)
+
+- 14 frontend tests: existing activation coverage plus active-vs-verified separation, failed picker activation staying open, unsigned updater setup state, release notes, and explicit installation.
+- 40 Rust tests, including missing key/configuration drift detection without executing an inserted Match rule, and active colour changes without Git writes. Clippy passes with warnings denied.
+- Browser fixture QA at 820, 1240 and 1920 pixels and a separate 480×420 quick picker; no horizontal overflow or browser errors. `identity-health.png` and `quick-picker.png` contain demo identities.
+- The macOS bundle builds. Global shortcut focus restoration and Windows/Linux runtime behavior need native acceptance testing. No real Git/SSH files were modified by these tests. Signed update installation requires configured release credentials and two published versions; it has not been exercised end to end.

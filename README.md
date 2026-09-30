@@ -332,7 +332,7 @@ The app checks for updates shortly after launch and daily, displays release note
    - Repository variable `TAURI_UPDATER_PUBLIC_KEY`: contents of the generated `.key.pub` file.
    - Repository secret `TAURI_SIGNING_PRIVATE_KEY`: contents of the private `.key` file.
    - Repository secret `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`: the key password, if one was used.
-3. Bump versions, commit, and push a new version tag. The release workflow generates a public-key configuration overlay, signs updater artifacts and uploads `latest.json`. Build jobs run serially to prevent concurrent updates to that shared manifest. Missing signing configuration fails the release clearly.
+3. Bump versions, commit, and push a new version tag. The release workflow generates a public-key configuration overlay, signs updater artifacts and uploads `latest.json`. Build jobs run serially to prevent concurrent updates to that shared manifest. Without these keys the release still builds installers, just without signed updates; setting only one of them fails the release.
 4. Review all platform assets, signatures and `latest.json`, then publish the draft. Test an upgrade from an older signed build before announcing automatic updates.
 
 The updater endpoint is the public GitHub release's `latest.json`. Existing versions without an updater need one manual upgrade first. Linux in-app installation requires running the AppImage; package-manager installations should be updated through their package manager. Tauri update signatures are separate from Apple notarization and Windows code signing.

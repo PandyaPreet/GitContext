@@ -8,19 +8,27 @@ export function Modal({
   title,
   description,
   children,
+  variant = "dialog",
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
   description: string;
   children: ReactNode;
+  variant?: "dialog" | "sheet";
 }) {
   const error = useContext(OperationErrorContext);
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="dialog-overlay" />
-        <DialogPrimitive.Content className="dialog-content">
+        <DialogPrimitive.Content
+          className={
+            variant === "sheet"
+              ? "dialog-content sheet-content"
+              : "dialog-content"
+          }
+        >
           <DialogPrimitive.Title className="dialog-title">
             {title}
           </DialogPrimitive.Title>

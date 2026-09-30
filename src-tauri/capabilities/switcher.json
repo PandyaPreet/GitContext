@@ -1,0 +1,10 @@
+{
+  "identifier": "switcher",
+  "description": "Quick profile picker events only",
+  "windows": [
+    "switcher"
+  ],
+  "permissions": [
+    "core:event:default"
+  ]
+}

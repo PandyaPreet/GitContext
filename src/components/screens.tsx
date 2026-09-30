@@ -19,11 +19,13 @@ export function ProfilesScreen({
   workspace: w,
   edit,
   activate,
+  details,
   manage,
 }: {
   workspace: Workspace;
   edit: (p?: Profile) => void;
   activate: (p: Profile) => void;
+  details: (p: Profile) => void;
   manage: (action: ManagementAction) => void;
 }) {
   const enabled = native && !w.busy && !w.loading;
@@ -51,7 +53,7 @@ export function ProfilesScreen({
               className={`profile-row ${w.data.singleProfileMode && p.id === w.data.globalProfileId ? "active" : ""}`}
             >
               <div
-                className={`avatar ${w.data.singleProfileMode && p.id === w.data.globalProfileId ? "active" : ""}`}
+                className={`avatar color-${p.color} ${w.data.singleProfileMode && p.id === w.data.globalProfileId ? "active" : ""}`}
               >
                 {p.name.slice(0, 1).toUpperCase()}
               </div>
@@ -82,6 +84,15 @@ export function ProfilesScreen({
                 </div>
               </div>
               <div className="profile-actions">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  aria-label={`View ${p.name} details`}
+                  disabled={!enabled}
+                  onClick={() => details(p)}
+                >
+                  Details
+                </Button>
                 <Button
                   size="sm"
                   variant="ghost"
@@ -123,6 +134,9 @@ export function ProfilesScreen({
                     </Button>
                   }
                 >
+                  <MenuItem disabled={!enabled} onSelect={() => details(p)}>
+                    View configuration…
+                  </MenuItem>
                   <MenuItem disabled={!enabled} onSelect={() => activate(p)}>
                     Reapply profile…
                   </MenuItem>
@@ -151,6 +165,23 @@ export function ProfilesScreen({
                     Duplicate profile…
                   </MenuItem>
                   <MenuSeparator />
+                  {(["mint", "blue", "violet", "amber"] as const).map(
+                    (color) => (
+                      <MenuItem
+                        key={color}
+                        selected={p.color === color}
+                        disabled={!enabled}
+                        onSelect={() =>
+                          void w.run("Updating colour", async () => {
+                            w.setData(await api.color(p.id, color));
+                          })
+                        }
+                      >
+                        <span className={`profile-dot color-${color}`} />
+                        {color[0].toUpperCase() + color.slice(1)}
+                      </MenuItem>
+                    ),
+                  )}
                   <MenuItem
                     onSelect={() =>
                       void w.run("Copying SSH alias", () =>

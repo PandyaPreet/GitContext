@@ -61,6 +61,7 @@ jobs:
     needs: create-release
     strategy:
       fail-fast: false
+      max-parallel: 1
       matrix:
         include:
           - name: macOS (Apple Silicon)
@@ -116,11 +117,21 @@ jobs:
 
       - run: npm ci
 
+      - name: Configure signed updates
+        run: node scripts/configure-updater.mjs
+        env:
+          TAURI_UPDATER_PUBLIC_KEY: ${{ vars.TAURI_UPDATER_PUBLIC_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           # AppImage bundling needs this on newer runners.
           NO_STRIP: ${{ runner.os == 'Linux' && 'true' || '' }}
         with:
           releaseId: ${{ needs.create-release.outputs.release_id }}
-          args: ${{ matrix.args }}
+          args: ${{ matrix.args }} --config src-tauri/tauri.updater.conf.json
+          uploadUpdaterJson: true
+          updaterJsonPreferNsis: true

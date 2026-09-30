@@ -172,3 +172,17 @@ pub struct AccountCheck {
 }
 
 pub type Result<T> = std::result::Result<T, String>;
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HealthCheck {
+    pub label: String,
+    pub ok: bool,
+    pub detail: String,
+}
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HealthReport {
+    pub profile_id: Option<String>,
+    pub checks: Vec<HealthCheck>,
+}

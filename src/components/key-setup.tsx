@@ -22,7 +22,7 @@ const fileName = (path: string) => path.split(/[\\/]/).pop() ?? path;
 export function AccountStatus({
   check,
   checking,
-  providerLabel,  
+  providerLabel,
 }: {
   check: AccountCheck | null;
   checking: boolean;

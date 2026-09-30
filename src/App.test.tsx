@@ -109,11 +109,27 @@ beforeEach(() => {
     unobserve() {}
     disconnect() {}
   };
+  let saved = structuredClone(initial);
   mocks.invoke.mockImplementation(
     async (command: string, args: Record<string, unknown>) => {
       switch (command) {
+        case "configuration_health":
+          return {
+            profileId: saved.globalProfileId || null,
+            checks: [{ label: "Git author", ok: true, detail: "Matches" }],
+          };
+        case "shortcut_status":
+          return null;
+        case "updater_ready":
+          return false;
+        case "verify_active_identity":
+          return {
+            success: true,
+            authenticatedAs: "alice",
+            message: "SSH authentication succeeded",
+          };
         case "snapshot":
-          return structuredClone(initial);
+          return structuredClone(saved);
         case "detect_environment":
           return detection;
         case "list_transactions":
@@ -140,6 +156,13 @@ beforeEach(() => {
           return { ...initial, activeProfileId: args.profileId };
         case "plan_activation":
           return plan;
+        case "activate_profile":
+          saved = {
+            ...saved,
+            singleProfileMode: true,
+            globalProfileId: args.profileId as string,
+          };
+          return structuredClone(saved);
         case "apply_assignment":
           return "plan1";
         case "check_account":
@@ -181,29 +204,38 @@ it("has no repository module, assignment actions, or background repository scans
     false,
   );
 });
-it("activates through a reviewed transaction instead of context-only selection", async () => {
+it("activates with one click and no confirmation dialog", async () => {
   const user = userEvent.setup();
   render(<App />);
   await screen.findByRole("heading", { name: "Work" });
   await user.click(screen.getAllByRole("button", { name: "Activate" })[0]);
-  const dialog = within(
-    await screen.findByRole("dialog", { name: "Activate profile" }),
-  );
-  expect(mocks.invoke).toHaveBeenCalledWith("plan_activation", {
-    profileId: "p1",
-  });
-  expect(mocks.invoke.mock.calls.some(([c]) => c === "apply_assignment")).toBe(
-    false,
-  );
-  await user.click(dialog.getByRole("button", { name: "Activate profile" }));
   await waitFor(() =>
-    expect(mocks.invoke).toHaveBeenCalledWith("apply_assignment", {
-      planId: "plan1",
+    expect(mocks.invoke).toHaveBeenCalledWith("activate_profile", {
+      profileId: "p1",
     }),
   );
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   expect(mocks.invoke.mock.calls.some(([c]) => c === "select_profile")).toBe(
     false,
   );
+});
+it("opens read-only configuration details without activating", async () => {
+  const user = userEvent.setup();
+  render(<App />);
+  await screen.findByRole("heading", { name: "Work" });
+  await user.click(screen.getByRole("button", { name: "View Work details" }));
+  const sheet = within(
+    await screen.findByRole("dialog", { name: "Work · Configuration" }),
+  );
+  expect(await sheet.findByText("Repository Git email")).toBeInTheDocument();
+  expect(
+    mocks.invoke.mock.calls.some(
+      ([c]) => c === "activate_profile" || c === "apply_assignment",
+    ),
+  ).toBe(false);
+  expect(
+    sheet.queryByRole("button", { name: "Activate profile" }),
+  ).not.toBeInTheDocument();
 });
 it("does not call the old fallback-only global selection active", async () => {
   const impl = mocks.invoke.getMockImplementation()!;
@@ -234,7 +266,7 @@ it("shows exactly one activated profile", async () => {
 it("keeps an activation error visible without claiming success", async () => {
   const impl = mocks.invoke.getMockImplementation()!;
   mocks.invoke.mockImplementation(async (c, a) =>
-    c === "apply_assignment"
+    c === "activate_profile"
       ? Promise.reject("Configuration changed since preview")
       : impl(c, a),
   );
@@ -242,9 +274,7 @@ it("keeps an activation error visible without claiming success", async () => {
   render(<App />);
   await screen.findByRole("heading", { name: "Work" });
   await user.click(screen.getAllByRole("button", { name: "Activate" })[0]);
-  const dialog = within(await screen.findByRole("dialog"));
-  await user.click(dialog.getByRole("button", { name: "Activate profile" }));
-  expect(await dialog.findByRole("alert")).toHaveTextContent(
+  expect(await screen.findByRole("alert")).toHaveTextContent(
     "Configuration changed since preview",
   );
 });
@@ -319,6 +349,57 @@ it("creates provider profiles without implicitly activating them", async () => {
     false,
   );
 });
+
+it("keeps the active identity unchanged until activation succeeds and blocks repeated clicks", async () => {
+  const original = mocks.invoke.getMockImplementation()!;
+  let rejectActivation!: (reason: string) => void;
+  mocks.invoke.mockImplementation(async (command, args) => {
+    if (command === "snapshot")
+      return { ...initial, singleProfileMode: true, globalProfileId: "p2" };
+    if (command === "activate_profile")
+      return new Promise((_resolve, reject) => {
+        rejectActivation = reject;
+      });
+    return original(command, args);
+  });
+  const user = userEvent.setup();
+  render(<App />);
+  const region = within(
+    await screen.findByRole("region", { name: "Current active profile" }),
+  );
+  await region.findByRole("heading", { name: "Personal" });
+  await user.click(screen.getByRole("button", { name: "Activate" }));
+  expect(region.getByRole("heading", { name: "Personal" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Activate" })).toBeDisabled();
+  expect(
+    mocks.invoke.mock.calls.filter(([c]) => c === "activate_profile"),
+  ).toHaveLength(1);
+  rejectActivation("Could not update configuration");
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Could not update configuration",
+  );
+  expect(region.getByRole("heading", { name: "Personal" })).toBeInTheDocument();
+});
+
+it("keeps active and verified separate until the full identity check succeeds", async () => {
+  const user = userEvent.setup();
+  render(<App />);
+  await screen.findByRole("heading", { name: "Profiles" });
+  await user.click(screen.getAllByRole("button", { name: "Activate" })[0]);
+  await screen.findByText(
+    "Work is now active. Your Git identity and SSH key are updated.",
+  );
+  expect(screen.getByText("Identity not verified")).toBeInTheDocument();
+  await user.click(
+    screen.getByRole("button", { name: "Verify active identity" }),
+  );
+  await screen.findByText(/Verified @alice/);
+  expect(mocks.invoke).toHaveBeenCalledWith(
+    "verify_active_identity",
+    undefined,
+  );
+});
+
 it("generates a key for a new user and hands it off to the provider", async () => {
   const generated = {
     privatePath: "/home/me/.ssh/id_ed25519_github_client",

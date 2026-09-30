@@ -5,9 +5,10 @@ import "@fontsource/jetbrains-mono/400.css";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
+import { QuickSwitcher } from "./components/quick-switcher";
 import "./styles.css";
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <App />
+    {window.location.search === "?switcher" ? <QuickSwitcher /> : <App />}
   </React.StrictMode>,
 );

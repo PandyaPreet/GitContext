@@ -108,7 +108,7 @@ export function ConnectionState({
         {busy
           ? "Testing…"
           : value?.success
-            ? "Verified"
+            ? "SSH verified"
             : value
               ? "Needs attention"
               : "Not tested"}

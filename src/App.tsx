@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { listen } from "@tauri-apps/api/event";
 import { Command } from "cmdk";
 import {
   Users,
@@ -11,7 +10,10 @@ import {
   RefreshCw,
   X,
   Loader2,
+  CheckCircle2,
 } from "lucide-react";
+import { IdentityHealth } from "./components/identity-health";
+import { Updates } from "./components/updates";
 import { useWorkspace } from "./hooks/use-workspace";
 import { api, native } from "./lib/api";
 import type { Plan, Profile } from "./lib/types";
@@ -47,6 +49,7 @@ export default function App() {
   const [page, setPage] = useState<Page>("profiles");
   const [editor, setEditor] = useState<{ profile?: Profile } | null>(null);
   const [management, setManagement] = useState<ManagementAction | null>(null);
+  const [detailProfile, setDetailProfile] = useState<Profile | null>(null);
   const [plan, setPlan] = useState<Plan | null>(null);
   const [restoreId, setRestoreId] = useState<string | null>(null);
   const [palette, setPalette] = useState(false);
@@ -55,9 +58,30 @@ export default function App() {
     ? w.data.profiles.find((p) => p.id === w.data.globalProfileId)
     : undefined;
   const activate = (profile: Profile) =>
-    void w.run("Preparing activation", async () => {
+    void w.run(`Activating ${profile.name}`, async () => {
+      const data = await api.activateProfile(profile.id);
+      w.setData(data);
+      w.setVerified({});
+      setDetailProfile(null);
+      setPlan(null);
+      w.setNotice({
+        error: false,
+        text: `${profile.name} is now active. Your Git identity and SSH key are updated.`,
+      });
+      // Keep history current without misreporting a successful switch as failed.
+      try {
+        await w.refresh();
+      } catch {
+        /* The returned activation snapshot remains authoritative. */
+      }
+    });
+  const details = (profile: Profile) => {
+    setDetailProfile(profile);
+    setPlan(null);
+    void w.run("Loading profile details", async () => {
       setPlan(await api.planActivation(profile.id));
     });
+  };
   const edit = (profile?: Profile) => {
     w.setNotice(null);
     setEditor({ profile });
@@ -76,16 +100,6 @@ export default function App() {
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
   }, []);
-  useEffect(() => {
-    if (!native) return;
-    const subscription = listen<string>("activate-requested", (event) => {
-      const profile = w.data.profiles.find((p) => p.id === event.payload);
-      if (profile) activate(profile);
-    });
-    return () => {
-      void subscription.then((off) => off());
-    };
-  }, [w.data.profiles, w.run]);
   return (
     <TooltipProvider delayDuration={350}>
       <OperationErrorContext.Provider
@@ -97,6 +111,7 @@ export default function App() {
               <GitBranch size={18} />
               <span className="nav-label">Git Context</span>
             </div>
+
             <nav aria-label="Main navigation">
               {navigation.map((n) => (
                 <button
@@ -111,43 +126,33 @@ export default function App() {
                 </button>
               ))}
             </nav>
-            <div className="sidebar-bottom sidebar-version nav-label">
-              One active profile
-            </div>
-          </aside>
-          <div className="main-shell">
-            <header className="toolbar">
-              <span className="toolbar-location">
-                {navigation.find((n) => n.id === page)?.label}
-              </span>
-              <div className="spacer" />
-              <IconButton
-                label="Open command palette"
-                onClick={() => setPalette(true)}
-              >
-                <Search size={16} />
-              </IconButton>
-              <kbd>⌘ / Ctrl K</kbd>
-              <IconButton
-                label="Refresh status"
-                disabled={!enabled}
-                onClick={() => void w.scan()}
-              >
-                <RefreshCw size={15} />
-              </IconButton>
+            <div className="sidebar-profile-bottom">
               <Dropdown
-                label="Activate profile"
+                label="Switch profile"
+                align="start"
+                side="top"
                 trigger={
                   <Button
                     variant="ghost"
-                    className="profile-trigger"
-                    aria-label="Activate profile"
+                    className="profile-trigger sidebar-profile-trigger"
+                    aria-label="Switch profile"
+                    disabled={!enabled}
                   >
-                    <span className="avatar">
+                    <span className={`avatar color-${active?.color || "mint"}`}>
                       {active?.name.slice(0, 1) || "—"}
                     </span>
-                    <span className="truncate">
-                      {active?.name || "Choose profile"}
+                    <span className="sidebar-profile-copy">
+                      <span className="sidebar-profile-label">
+                        Active profile
+                      </span>
+                      <strong className="truncate">
+                        {active?.name || "Choose profile"}
+                      </strong>
+                      <span className="secondary-line truncate">
+                        {active
+                          ? providerLabel(active.provider)
+                          : "Select an account"}
+                      </span>
                     </span>
                     <ChevronDown size={13} />
                   </Button>
@@ -174,61 +179,146 @@ export default function App() {
                   Add profile
                 </MenuItem>
               </Dropdown>
+            </div>
+          </aside>
+          <div className="main-shell">
+            <header className="toolbar">
+              <span className="toolbar-location">
+                {navigation.find((n) => n.id === page)?.label}
+              </span>
+              <div className="spacer" />
+              <IconButton
+                label="Open command palette"
+                onClick={() => setPalette(true)}
+              >
+                <Search size={16} />
+              </IconButton>
+              <kbd>⌘ / Ctrl K</kbd>
+              <IconButton
+                label="Refresh status"
+                disabled={!enabled}
+                onClick={() => void w.scan()}
+              >
+                <RefreshCw size={15} />
+              </IconButton>
             </header>
             <main>
-              {!native && (
-                <div className="preview-banner">
-                  Browser preview · Open the desktop app to access Git and SSH.
-                </div>
-              )}
-              {w.notice && (
-                <div
-                  className={`notice ${w.notice.error ? "error" : ""}`}
-                  role={w.notice.error ? "alert" : "status"}
+              <div className="content-container">
+                <section
+                  className={`active-context color-${active?.color || "mint"} ${active ? "is-active" : ""}`}
+                  aria-label="Current active profile"
                 >
-                  <span>{w.notice.text}</span>
-                  <button
-                    className="notice-close"
-                    aria-label="Dismiss notification"
-                    onClick={() => w.setNotice(null)}
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-              )}
-              {page === "profiles" && (
-                <>
-                  {!active && !w.loading && (
-                    <p className="notice">
-                      Activate a profile to set your Git name, email, and
-                      provider SSH key. Existing app aliases are included.
-                    </p>
+                  <div className="active-context-mark">
+                    {active ? (
+                      <CheckCircle2 size={24} />
+                    ) : (
+                      <GitBranch size={24} />
+                    )}
+                  </div>
+                  <div className="active-context-copy">
+                    <span className="active-context-eyebrow">
+                      {w.busy.startsWith("Activating")
+                        ? w.busy
+                        : active
+                          ? "Active Git profile"
+                          : "Your Git context"}
+                    </span>
+                    <h2>{active?.name || "Choose a profile to get started"}</h2>
+                    <div className="active-context-meta">
+                      {active && <ProviderMark provider={active.provider} />}
+                      <span className="truncate" title={active?.gitEmail}>
+                        {active?.gitEmail ||
+                          "One click sets your global Git identity and SSH key."}
+                      </span>
+                    </div>
+                    {active && (
+                      <div className="active-context-key">
+                        <KeyRound size={13} />
+                        <span
+                          className="truncate"
+                          title={active.privateKeyPath}
+                        >
+                          {active.privateKeyPath.split(/[\\/]/).pop()}
+                        </span>
+                        <span>· {active.host}</span>
+                      </div>
+                    )}
+                  </div>
+                  {active && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!enabled}
+                      onClick={() => details(active)}
+                    >
+                      View details
+                    </Button>
                   )}
-                  {w.loading ? (
-                    <div
-                      className="skeleton skeleton-row"
-                      aria-label="Loading profiles"
-                    />
-                  ) : (
-                    <ProfilesScreen
-                      workspace={w}
-                      edit={edit}
-                      activate={activate}
-                      manage={manage}
-                    />
-                  )}
-                </>
-              )}
-              {page === "keys" && <KeysScreen workspace={w} manage={manage} />}
-              {page === "settings" && (
-                <SettingsScreen
+                </section>
+                <IdentityHealth
                   workspace={w}
-                  restore={(id) => {
-                    w.setNotice(null);
-                    setRestoreId(id);
-                  }}
+                  active={active}
+                  activate={activate}
                 />
-              )}
+                <Updates />
+                {!native && (
+                  <div className="preview-banner">
+                    Browser preview · Open the desktop app to access Git and
+                    SSH.
+                  </div>
+                )}
+                {w.notice && (
+                  <div
+                    className={`notice ${w.notice.error ? "error" : ""}`}
+                    role={w.notice.error ? "alert" : "status"}
+                  >
+                    <span>{w.notice.text}</span>
+                    <button
+                      className="notice-close"
+                      aria-label="Dismiss notification"
+                      onClick={() => w.setNotice(null)}
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                )}
+                {page === "profiles" && (
+                  <>
+                    {!active && !w.loading && (
+                      <p className="notice">
+                        Activate a profile to set your Git name, email, and
+                        provider SSH key. Existing app aliases are included.
+                      </p>
+                    )}
+                    {w.loading ? (
+                      <div
+                        className="skeleton skeleton-row"
+                        aria-label="Loading profiles"
+                      />
+                    ) : (
+                      <ProfilesScreen
+                        workspace={w}
+                        edit={edit}
+                        activate={activate}
+                        details={details}
+                        manage={manage}
+                      />
+                    )}
+                  </>
+                )}
+                {page === "keys" && (
+                  <KeysScreen workspace={w} manage={manage} />
+                )}
+                {page === "settings" && (
+                  <SettingsScreen
+                    workspace={w}
+                    restore={(id) => {
+                      w.setNotice(null);
+                      setRestoreId(id);
+                    }}
+                  />
+                )}
+              </div>
             </main>
           </div>
           <footer className="statusbar">
@@ -282,59 +372,55 @@ export default function App() {
           )}
         </Modal>
         <Modal
-          open={!!plan}
+          variant="sheet"
+          open={!!detailProfile}
           onOpenChange={(open) => {
-            if (!open && !w.busy) setPlan(null);
+            if (!open) {
+              setDetailProfile(null);
+              setPlan(null);
+            }
           }}
-          title="Activate profile"
-          description="This changes your Git author and provider SSH identity. A backup is saved before applying."
+          title={`${detailProfile?.name || "Profile"} · Configuration`}
+          description="See what this profile applies. Activation runs in one click and saves a backup automatically."
         >
+          <div className="sheet-summary">
+            <ProviderMark provider={detailProfile?.provider} />
+            <span>{detailProfile?.host}</span>
+            <span className="mono">{detailProfile?.gitEmail}</span>
+          </div>
+          {!plan && !w.notice?.error && (
+            <p className="pending-label">
+              <Loader2 size={16} className="spin" /> Loading configuration…
+            </p>
+          )}
           {plan && (
-            <>
-              <div className="change-list">
-                {plan.changes.map((change) => (
-                  <div className="change-row" key={change.label}>
-                    <h3>{change.label}</h3>
-                    <div className="change-values">
-                      <div className="before mono">
+            <div className="change-list">
+              {plan.changes.map((change) => (
+                <div className="change-row" key={change.label}>
+                  <h3>{change.label}</h3>
+                  <div className="change-values">
+                    <div>
+                      <span className="change-caption">Current</span>
+                      <span className="before mono">
                         {change.before || "Not set"}
-                      </div>
-                      <div className="after mono">{change.after || "None"}</div>
+                      </span>
+                    </div>
+                    <div>
+                      <span className="change-caption">With this profile</span>
+                      <span className="after mono">
+                        {change.after || "None"}
+                      </span>
                     </div>
                   </div>
-                ))}
-              </div>
-              <p className="context-help">
-                Sets the global Git author and SSH key. Repository-local settings
-                can override these defaults. HTTPS credentials are separate.
-              </p>
-              <div className="form-actions">
-                <Button
-                  variant="secondary"
-                  disabled={!!w.busy}
-                  onClick={() => setPlan(null)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  disabled={!!w.busy}
-                  onClick={() =>
-                    void w.run("Activating profile", async () => {
-                      await api.apply(plan.id);
-                      await w.refresh();
-                      setPlan(null);
-                      w.setNotice({
-                        error: false,
-                        text: "Profile activated. Git author and managed SSH identities updated.",
-                      });
-                    })
-                  }
-                >
-                  {w.busy ? "Activating…" : "Activate profile"}
-                </Button>
-              </div>
-            </>
+                </div>
+              ))}
+            </div>
           )}
+          <p className="context-help">
+            Global defaults apply to Git author and SSH key. Repository-local
+            overrides and HTTPS credentials remain separate. Restore saved
+            changes in Settings → Configuration history.
+          </p>
         </Modal>
         <Modal
           open={!!restoreId}

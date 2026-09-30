@@ -84,7 +84,16 @@ export function useWorkspace() {
       },
     );
     const changed = listen<AppData>("context-changed", (e) => {
-      if (!cancelled) setData(e.payload);
+      if (!cancelled) {
+        setData(e.payload);
+        setVerified({});
+        void api
+          .transactions()
+          .then((history) => {
+            if (!cancelled) setTransactions(history);
+          })
+          .catch(() => {});
+      }
     });
     const errors = listen<string>("context-error", (e) => {
       if (!cancelled) setNotice({ error: true, text: e.payload });

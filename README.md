@@ -336,3 +336,9 @@ The app checks for updates shortly after launch and daily, displays release note
 4. Review all platform assets, signatures and `latest.json`, then publish the draft. Test an upgrade from an older signed build before announcing automatic updates.
 
 The updater endpoint is the public GitHub release's `latest.json`. Existing versions without an updater need one manual upgrade first. Linux in-app installation requires running the AppImage; package-manager installations should be updated through their package manager. Tauri update signatures are separate from Apple notarization and Windows code signing.
+
+## License
+
+Git Context is licensed under the [MIT License](LICENSE).
+
+Copyright (c) 2026 Git Context. Third-party dependencies retain their own licenses and notices.

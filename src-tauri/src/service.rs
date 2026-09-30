@@ -1063,7 +1063,7 @@ mod tests {
         fs::write(&include, "[user]\n email = override@example.com\n").unwrap();
         let original = format!(
             "[user]\n name = Old\n email = old@example.com\n[include]\n path = {}\n",
-            include.display()
+            include.display().to_string().replace('\\', "/")
         );
         fs::write(&service.global_git_path, &original).unwrap();
         let ssh_before = fs::read(&service.ssh_config_path).unwrap();
@@ -1258,7 +1258,10 @@ mod tests {
         let (temp, mut service, pid, rid) = fixture();
         let inherited = temp.path().join("gitshift-active.gitconfig");
         fs::write(&inherited, "[user]\n name = Other\n email = other@example.com\n[core]\n sshCommand = ssh -i old-key\n").unwrap();
-        let original = format!("[include]\n path = {}\n", inherited.display());
+        let original = format!(
+            "[include]\n path = {}\n",
+            inherited.display().to_string().replace('\\', "/")
+        );
         fs::write(&service.global_git_path, &original).unwrap();
         // Stale registrations and unrelated local transports cannot block a global switch.
         let repo = service
@@ -1316,7 +1319,11 @@ mod tests {
             identities,
             vec![format!(
                 "identityfile {}",
-                service.profile(&pid).unwrap().private_key_path
+                service
+                    .profile(&pid)
+                    .unwrap()
+                    .private_key_path
+                    .replace('\\', "/")
             )]
         );
         assert!(out.stdout.lines().any(|l| l == "hostname github.com"));

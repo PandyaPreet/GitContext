@@ -153,4 +153,22 @@ pub struct Verification {
     pub message: String,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum AccountStatus {
+    Found,
+    Missing,
+    Unknown,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AccountCheck {
+    pub status: AccountStatus,
+    pub username: String,
+    pub display_name: Option<String>,
+    pub profile_url: Option<String>,
+    pub message: String,
+}
+
 pub type Result<T> = std::result::Result<T, String>;

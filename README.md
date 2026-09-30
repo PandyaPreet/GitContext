@@ -17,7 +17,7 @@ Git Context sets the right name, email and SSH key for each repository, so you s
 
 [**Download**](#-download) · [Features](#-features) · [Security & privacy](#-security--privacy) · [How it works](#-how-it-works) · [FAQ](#-faq) · [Contributing](#-contributing)
 
-🔒 **Runs entirely on your computer. No account, no cloud, no tracking. Your data never leaves your machine.**
+🔒 **Runs entirely on your computer. No account, no cloud, no tracking. Your keys and config never leave your machine.**
 
 </div>
 
@@ -42,6 +42,7 @@ You have a work account and a personal one. Maybe a few client accounts too. The
 | | |
 | --- | --- |
 | 👤 **Profiles for every identity** | GitHub and GitLab, including self-hosted hosts and custom SSH ports. Each profile has a name, email, username, SSH key and color. |
+| 🔑 **Generate SSH keys in-app** | Checks that your GitHub or GitLab username exists, then creates an Ed25519 key in one click, copy the public key, and jump straight to your GitHub or GitLab SSH settings to paste it. |
 | 📁 **Per-repository assignment** | Sets `user.name`, `user.email` and a dedicated SSH host alias for a repository, and can rewrite its remote to match. |
 | 🔍 **Preview before apply** | Every change to `~/.ssh/config`, `~/.gitconfig` or a repository's config appears as a before/after diff first. Nothing is written until you confirm. |
 | ↩️ **Undo** | Every applied change is journaled. Roll it back from **Settings → Configuration history**. |
@@ -66,8 +67,9 @@ Git Context works with your SSH keys and Git identity, so it's built to be trust
 
 ### Your SSH keys stay yours
 
-- Git Context **never copies, uploads or modifies your private keys**, and it never creates new ones.
-- It stores only the **file path** to keys you already have, such as `~/.ssh/id_ed25519_work`.
+- Git Context **never copies, uploads or modifies your private keys**.
+- New keys you generate are created by your system's own `ssh-keygen` in `~/.ssh`, and existing files are never overwritten.
+- It stores only the **file path** to your keys, such as `~/.ssh/id_ed25519_work`.
 - Authentication is done by your system's own OpenSSH, exactly as when you run `git push`.
 
 ### What stays on your computer
@@ -85,7 +87,9 @@ It's stored in your OS's standard app-data folder (see [How it works](#-how-it-w
 
 ### When does it use the network?
 
-Git Context itself never opens a network connection. Your installed tools do, and only when you ask:
+Git Context has no servers of its own. It talks only to your Git provider (GitHub, GitLab or your self-hosted GitLab), and only for these checks:
+
+- **Username check**: while you create a profile, the app asks the provider's public API whether the username exists, using your system's `curl`. Only the username is sent: no email, keys or configuration.
 
 - **Verify profile** runs `ssh -T git@<your-host>` so GitHub or GitLab can confirm which account a key belongs to, the same check their docs recommend.
 - **Environment detection**: if you have the GitHub CLI (`gh`) installed, the app runs `gh auth status` to suggest the usernames you're signed in with. If you don't have `gh`, nothing happens.
@@ -156,12 +160,12 @@ The tray icon needs an AppIndicator-compatible desktop. On GNOME, install the *A
 ## 🚀 Quick start
 
 1. **Launch Git Context.** It detects your Git setup and any SSH keys in `~/.ssh`.
-2. **Create a profile** for each identity, for example *Work* (GitHub, `you@company.com`, `~/.ssh/id_ed25519_work`) and *Personal*.
+2. **Create a profile** for each identity, for example *Work* and *Personal*. Pick an existing SSH key, or click **Generate new key** and add it to your account with the **Copy** and **Open SSH settings** buttons.
 3. **Verify** each profile. Git Context asks GitHub or GitLab which account the key belongs to.
 4. **Add a repository**, choose a profile, review the preview and click **Apply**.
 5. Commit and push as usual. The right identity is used every time.
 
-> 💡 Don't have a second key yet? Create one with `ssh-keygen -t ed25519 -C "you@company.com" -f ~/.ssh/id_ed25519_work` and add the `.pub` file to your account's SSH settings.
+> 💡 **New to SSH keys?** Click **Generate new key** while creating a profile. Git Context creates the key, lets you copy it, and opens your GitHub or GitLab SSH settings so you can paste it.
 
 ## ⚙️ How it works
 
@@ -206,7 +210,7 @@ No. Git Context only edits its own marked blocks, shows every change before appl
 <details>
 <summary><b>Does it upload or store my private keys?</b></summary>
 
-No. It only stores the *path* to keys you already have. Nothing is sent anywhere except the standard `ssh -T` handshake used to verify a profile with your Git provider.
+No. It only stores the *path* to keys you already have. Nothing is sent anywhere except a public username lookup and the standard `ssh -T` handshake, both only to your own Git provider.
 </details>
 
 <details>

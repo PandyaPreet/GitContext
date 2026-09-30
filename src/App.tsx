@@ -362,6 +362,7 @@ export default function App() {
               initial={editor.profile}
               availableKeys={w.keys}
               detection={w.detection}
+              onKeysChanged={w.setData}
               onSave={(data) => {
                 w.setData(data);
                 w.setVerified({});

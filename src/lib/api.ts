@@ -1,8 +1,10 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import type {
+  AccountCheck,
   AppData,
   HealthReport,
   Detection,
+  GitProvider,
   Plan,
   Profile,
   RepoStatus,
@@ -43,6 +45,12 @@ export const api = {
   snapshot: () => call<AppData>("snapshot"),
   detect: () => call<Detection>("detect_environment"),
   importKey: (publicPath: string) => call<SshKey>("import_key", { publicPath }),
+  generateKey: (name: string, comment: string) =>
+    call<SshKey>("generate_key", { name, comment }),
+  checkAccount: (provider: GitProvider, host: string, username: string) =>
+    call<AccountCheck>("check_account", { provider, host, username }),
+  openKeySettings: (provider: GitProvider, host: string) =>
+    call<void>("open_key_settings", { provider, host }),
   createProfile: (profile: Profile) =>
     call<AppData>("create_profile", { profile }),
   updateProfile: (profile: Profile) =>

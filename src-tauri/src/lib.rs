@@ -109,6 +109,31 @@ async fn import_key(public_path: String) -> Result<SshKey> {
     .map_err(|_| "Key import failed")?
 }
 #[tauri::command]
+async fn generate_key(name: String, comment: String) -> Result<SshKey> {
+    tauri::async_runtime::spawn_blocking(move || detection::generate_key(&name, &comment))
+        .await
+        .map_err(|_| "Key generation failed")?
+}
+#[tauri::command]
+async fn check_account(
+    provider: provider::GitProvider,
+    host: String,
+    username: String,
+) -> Result<AccountCheck> {
+    tauri::async_runtime::spawn_blocking(move || {
+        provider::check_account(provider, &host, &username)
+    })
+    .await
+    .map_err(|_| "Account lookup failed")?
+}
+#[tauri::command]
+async fn open_key_settings(provider: provider::GitProvider, host: String) -> Result<()> {
+    let url = provider.ssh_keys_url(&host)?;
+    tauri::async_runtime::spawn_blocking(move || platform::open_url(&url))
+        .await
+        .map_err(|_| "Could not open the browser")?
+}
+#[tauri::command]
 async fn create_profile(
     app: tauri::AppHandle,
     state: State<'_, Shared>,
@@ -546,6 +571,9 @@ pub fn run() {
             shortcut_status,
             detect_environment,
             import_key,
+            generate_key,
+            check_account,
+            open_key_settings,
             create_profile,
             rename_profile,
             remove_profile,

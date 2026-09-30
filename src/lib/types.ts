@@ -92,3 +92,11 @@ export interface HealthReport {
   profileId: string | null;
   checks: { label: string; ok: boolean; detail: string }[];
 }
+
+export interface AccountCheck {
+  status: "found" | "missing" | "unknown";
+  username: string;
+  displayName: string | null;
+  profileUrl: string | null;
+  message: string;
+}

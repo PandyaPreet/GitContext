@@ -89,6 +89,60 @@ pub fn inspect_key(public: &Path, agent: &str) -> Result<SshKey> {
     })
 }
 
+fn valid_key_name(name: &str) -> bool {
+    (1..=64).contains(&name.len())
+        && !name.starts_with(['.', '-'])
+        && name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'))
+}
+
+/// Creates a new Ed25519 key pair in `~/.ssh`, refusing to overwrite existing files.
+pub fn generate_key(name: &str, comment: &str) -> Result<SshKey> {
+    if !valid_key_name(name) || name.ends_with(".pub") {
+        return Err(
+            "Use 1–64 letters, digits, dots, hyphens or underscores for the key name.".into(),
+        );
+    }
+    if comment.len() > 200 || comment.chars().any(char::is_control) {
+        return Err(
+            "Key comment cannot exceed 200 characters or contain control characters.".into(),
+        );
+    }
+    let dir = home()?.join(".ssh");
+    if !dir.exists() {
+        storage::private_dir(&dir)?;
+    }
+    let private = dir.join(name);
+    let public = dir.join(format!("{name}.pub"));
+    if fs::symlink_metadata(&private).is_ok() || fs::symlink_metadata(&public).is_ok() {
+        return Err(format!(
+            "A key named {name} already exists. Choose another name."
+        ));
+    }
+    let output = process::run(
+        "ssh-keygen",
+        &[
+            "-q",
+            "-t",
+            "ed25519",
+            "-N",
+            "",
+            "-C",
+            comment,
+            "-f",
+            private.to_str().ok_or("Invalid key path")?,
+        ],
+        None,
+    )?;
+    if output.code != 0 {
+        return Err(
+            "OpenSSH could not generate the key. Check that ssh-keygen is installed.".into(),
+        );
+    }
+    inspect_key(&public, "")
+}
+
 pub fn detect() -> Result<Detection> {
     let ssh_dir = home()?.join(".ssh");
     let config = ssh_dir.join("config");
@@ -181,4 +235,17 @@ pub fn detect() -> Result<Detection> {
         platform: std::env::consts::OS.into(),
         warnings,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn key_names_stay_inside_ssh_directory() {
+        assert!(valid_key_name("id_ed25519_work"));
+        assert!(valid_key_name("github-work.2026"));
+        for name in ["", "../id", "a/b", r"a\b", ".hidden", "-flag", "has space"] {
+            assert!(!valid_key_name(name), "{name}");
+        }
+    }
 }

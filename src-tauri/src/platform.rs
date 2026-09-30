@@ -16,6 +16,22 @@ pub fn launch(kind: &str, path: &Path) -> Result<()> {
     }
     launch_native(kind, path)
 }
+pub fn open_url(url: &str) -> Result<()> {
+    if !url.starts_with("https://") || url.chars().any(|c| c.is_whitespace() || c.is_control()) {
+        return Err("Refusing to open an unsafe URL".into());
+    }
+    #[cfg(target_os = "macos")]
+    let mut command = Command::new("open");
+    #[cfg(target_os = "windows")]
+    let mut command = {
+        let mut command = Command::new("rundll32.exe");
+        command.arg("url.dll,FileProtocolHandler");
+        command
+    };
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    let mut command = Command::new("xdg-open");
+    spawn(command.arg(url))
+}
 fn spawn(command: &mut Command) -> Result<()> {
     command
         .stdin(Stdio::null())

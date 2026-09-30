@@ -1,4 +1,7 @@
-use crate::model::{Profile, Result, Verification};
+use crate::{
+    model::{AccountCheck, AccountStatus, Profile, Result, Verification},
+    process,
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -21,6 +24,16 @@ impl GitProvider {
             Self::Github => "github.com",
             Self::Gitlab => "gitlab.com",
         }
+    }
+    pub fn ssh_keys_url(self, host: &str) -> Result<String> {
+        let host = host.to_ascii_lowercase();
+        if !valid_host(&host) {
+            return Err("Enter a valid hostname for this profile first.".into());
+        }
+        Ok(match self {
+            Self::Github => "https://github.com/settings/ssh/new".into(),
+            Self::Gitlab => format!("https://{host}/-/user_settings/ssh_keys"),
+        })
     }
     pub fn valid_username(self, username: &str) -> bool {
         !username.is_empty()
@@ -95,6 +108,135 @@ impl GitProvider {
             }
         }
     }
+}
+
+/// Looks up a public account by username. Only the username is sent to the provider.
+pub fn check_account(provider: GitProvider, host: &str, username: &str) -> Result<AccountCheck> {
+    let host = host.to_ascii_lowercase();
+    let username = username.trim();
+    if !valid_host(&host) || (provider == GitProvider::Github && host != "github.com") {
+        return Err("Enter a valid hostname for this profile first.".into());
+    }
+    if !provider.valid_username(username) {
+        return Err(format!(
+            "Enter a valid {} username, without the @ prefix.",
+            provider.label()
+        ));
+    }
+    let url = match provider {
+        GitProvider::Github => format!("https://api.github.com/users/{username}"),
+        GitProvider::Gitlab => format!("https://{host}/api/v4/users?username={username}"),
+    };
+    let output = process::run(
+        "curl",
+        &[
+            "--silent",
+            "--proto",
+            "=https",
+            "--max-time",
+            "10",
+            "--header",
+            "Accept: application/json",
+            "--user-agent",
+            "GitContext",
+            "--write-out",
+            "\n%{http_code}",
+            &url,
+        ],
+        None,
+    );
+    let unknown = |message: String| AccountCheck {
+        status: AccountStatus::Unknown,
+        username: username.into(),
+        display_name: None,
+        profile_url: None,
+        message,
+    };
+    let output = match output {
+        Ok(output) if output.code == 0 => output,
+        _ => {
+            return Ok(unknown(format!(
+                "Could not reach {}. Check your connection; you can still continue.",
+                provider.label()
+            )))
+        }
+    };
+    let (body, code) = output
+        .stdout
+        .rsplit_once('\n')
+        .unwrap_or(("", output.stdout.as_str()));
+    Ok(parse_account(provider, code.trim(), body, username).unwrap_or_else(unknown))
+}
+
+fn parse_account(
+    provider: GitProvider,
+    code: &str,
+    body: &str,
+    username: &str,
+) -> std::result::Result<AccountCheck, String> {
+    let label = provider.label();
+    let missing = || AccountCheck {
+        status: AccountStatus::Missing,
+        username: username.into(),
+        display_name: None,
+        profile_url: None,
+        message: format!("No {label} account named @{username}. Check the spelling."),
+    };
+    match code {
+        "200" => {}
+        "404" => return Ok(missing()),
+        "401" | "403" | "429" => {
+            return Err(format!(
+                "{label} did not allow the lookup right now (rate limit or sign-in required). You can still continue."
+            ))
+        }
+        _ => return Err(format!("{label} returned an unexpected response. You can still continue.")),
+    }
+    let value: serde_json::Value = serde_json::from_str(body)
+        .map_err(|_| format!("{label} returned an unreadable response."))?;
+    let account = match provider {
+        GitProvider::Github => {
+            if value.get("type").and_then(|v| v.as_str()) == Some("Organization") {
+                return Ok(AccountCheck {
+                    message: format!(
+                        "@{username} is a {label} organization. Use your personal username."
+                    ),
+                    ..missing()
+                });
+            }
+            value
+        }
+        GitProvider::Gitlab => match value.as_array().and_then(|users| users.first()) {
+            Some(user) => user.clone(),
+            None => return Ok(missing()),
+        },
+    };
+    let text = |key: &str| {
+        account
+            .get(key)
+            .and_then(|v| v.as_str())
+            .filter(|v| !v.is_empty() && v.len() <= 255 && !v.chars().any(char::is_control))
+            .map(str::to_string)
+    };
+    let canonical = text(if provider == GitProvider::Github {
+        "login"
+    } else {
+        "username"
+    })
+    .filter(|name| provider.valid_username(name))
+    .ok_or_else(|| format!("{label} returned an unreadable response."))?;
+    Ok(AccountCheck {
+        status: AccountStatus::Found,
+        message: format!("{label} account @{canonical} found."),
+        username: canonical,
+        display_name: text("name"),
+        profile_url: text(if provider == GitProvider::Github {
+            "html_url"
+        } else {
+            "web_url"
+        })
+        .filter(|url| url.starts_with("https://")),
+    })
 }
 
 pub fn default_host() -> String {
@@ -385,5 +527,58 @@ mod tests {
                 .verification("Welcome to GitLab, @alice!", "alice", "github.com")
                 .success
         );
+    }
+    #[test]
+    fn parses_account_lookups() {
+        let github = parse_account(
+            GitProvider::Github,
+            "200",
+            r#"{"login":"Alice","name":"Alice A","type":"User","html_url":"https://github.com/Alice"}"#,
+            "alice",
+        )
+        .unwrap();
+        assert_eq!(github.status, AccountStatus::Found);
+        assert_eq!(github.username, "Alice");
+        assert_eq!(github.display_name.as_deref(), Some("Alice A"));
+        let org = parse_account(
+            GitProvider::Github,
+            "200",
+            r#"{"login":"acme","type":"Organization"}"#,
+            "acme",
+        )
+        .unwrap();
+        assert_eq!(org.status, AccountStatus::Missing);
+        let gitlab = parse_account(
+            GitProvider::Gitlab,
+            "200",
+            r#"[{"username":"bob","name":"Bob","web_url":"https://gitlab.com/bob"}]"#,
+            "bob",
+        )
+        .unwrap();
+        assert_eq!(
+            gitlab.profile_url.as_deref(),
+            Some("https://gitlab.com/bob")
+        );
+        for (provider, code, body) in [
+            (GitProvider::Github, "404", "{}"),
+            (GitProvider::Gitlab, "200", "[]"),
+        ] {
+            let result = parse_account(provider, code, body, "nobody").unwrap();
+            assert_eq!(result.status, AccountStatus::Missing);
+        }
+        assert!(parse_account(GitProvider::Github, "403", "", "alice").is_err());
+        assert!(parse_account(GitProvider::Github, "200", "not json", "alice").is_err());
+    }
+    #[test]
+    fn ssh_key_settings_urls() {
+        assert_eq!(
+            GitProvider::Github.ssh_keys_url("github.com").unwrap(),
+            "https://github.com/settings/ssh/new"
+        );
+        assert_eq!(
+            GitProvider::Gitlab.ssh_keys_url("Git.Company.com").unwrap(),
+            "https://git.company.com/-/user_settings/ssh_keys"
+        );
+        assert!(GitProvider::Gitlab.ssh_keys_url("evil.com/@x").is_err());
     }
 }

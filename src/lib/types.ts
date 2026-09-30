@@ -87,3 +87,10 @@ export interface Verification {
   authenticatedAs: string | null;
   message: string;
 }
+export interface AccountCheck {
+  status: "found" | "missing" | "unknown";
+  username: string;
+  displayName: string | null;
+  profileUrl: string | null;
+  message: string;
+}

@@ -50,6 +50,8 @@ export const api = {
     call<RepoStatus>("repository_status", { repositoryId }),
   plan: (repositoryId: string, profileId: string, rewriteRemote: boolean) =>
     call<Plan>("plan_assignment", { repositoryId, profileId, rewriteRemote }),
+  activateProfile: (profileId: string) =>
+    call<AppData>("activate_profile", { profileId }),
   planActivation: (profileId: string) =>
     call<Plan>("plan_activation", { profileId }),
   planGlobal: (profileId: string) =>

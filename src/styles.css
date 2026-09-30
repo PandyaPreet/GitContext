@@ -1392,3 +1392,222 @@ pre {
   margin-bottom: 0;
   padding-bottom: var(--space-2);
 }
+
+/* Stable desktop geometry: no sidebar-width breakpoint or resize animation. */
+:root {
+  --sidebar-width: 220px;
+}
+.sidebar {
+  padding: 16px 10px;
+  gap: 22px;
+}
+.brand {
+  justify-content: flex-start;
+  padding: 8px;
+}
+.brand span,
+.nav-label,
+.sidebar-version {
+  display: initial;
+}
+.nav-button {
+  justify-content: flex-start;
+  padding: 0 12px;
+}
+.sidebar-profile-trigger {
+  width: 100%;
+  height: auto;
+  min-height: 80px;
+  padding: 12px 10px;
+  justify-content: flex-start;
+  gap: 10px;
+  text-align: left;
+  border: 1px solid var(--subtle-border);
+  background: var(--hover);
+}
+.sidebar-profile-trigger > .avatar {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  background: var(--selected);
+  color: var(--accent);
+}
+.sidebar-profile-trigger > svg {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.sidebar-profile-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.sidebar-profile-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--secondary);
+}
+.sidebar-profile-copy strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+main {
+  scrollbar-gutter: stable;
+  overflow-x: hidden;
+}
+.content-container {
+  width: 100%;
+  max-width: 1160px;
+  margin-inline: auto;
+  min-width: 0;
+}
+.active-context {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 22px;
+  margin-bottom: 28px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--elevated);
+  min-height: 128px;
+}
+.active-context.is-active {
+  background: color-mix(in srgb, var(--selected) 42%, var(--background));
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+  box-shadow: inset 4px 0 var(--accent);
+}
+.active-context-mark {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  flex-shrink: 0;
+  background: var(--selected);
+  color: var(--accent);
+}
+.active-context-copy {
+  flex: 1;
+  min-width: 0;
+}
+.active-context-eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.active-context h2 {
+  margin: 4px 0 6px;
+  font-size: 24px;
+  letter-spacing: -0.5px;
+}
+.active-context-meta,
+.active-context-key {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--secondary);
+}
+.active-context-key {
+  margin-top: 7px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  flex-wrap: wrap;
+}
+.profile-row {
+  border-radius: 8px;
+  margin-bottom: 4px;
+}
+.profile-row.active {
+  box-shadow: inset 3px 0 var(--accent);
+}
+.profile-row.active h3 {
+  font-weight: 600;
+}
+.sheet-content {
+  inset: 0 0 0 auto;
+  transform: none;
+  width: min(560px, calc(100vw - 40px));
+  height: 100dvh;
+  max-height: none;
+  border-radius: 14px 0 0 14px;
+  border-width: 0 0 0 1px;
+  padding: 32px 26px;
+  animation: sheet-enter 180ms ease-out;
+  scrollbar-gutter: stable;
+}
+.sheet-summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 14px;
+  background: var(--hover);
+  border-radius: 8px;
+  margin: 20px 0;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.sheet-summary .mono {
+  flex-basis: 100%;
+  color: var(--secondary);
+}
+.change-caption {
+  display: block;
+  font-family: var(--font-sans);
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.sheet-content .change-values {
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+.sheet-content .change-row {
+  padding-block: 18px;
+}
+@keyframes sheet-enter {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+@media (max-width: 1050px) {
+  .profile-row {
+    grid-template-columns: 28px minmax(0, 1fr) auto;
+    gap: 10px;
+    padding: 14px 10px;
+  }
+  .profile-actions {
+    gap: 4px;
+  }
+  .active-context {
+    padding: 18px;
+    gap: 12px;
+  }
+  .active-context-mark {
+    width: 36px;
+    height: 36px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sheet-content {
+    animation: none;
+  }
+}
+
+.sidebar-profile-bottom {
+  margin-top: auto;
+  flex-shrink: 0;
+}

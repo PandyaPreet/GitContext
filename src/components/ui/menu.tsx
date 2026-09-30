@@ -6,11 +6,13 @@ export function Dropdown({
   label,
   children,
   align = "end",
+  side = "bottom",
 }: {
   trigger: ReactNode;
   label: string;
   children: ReactNode;
   align?: "start" | "end";
+  side?: "top" | "bottom" | "left" | "right";
 }) {
   return (
     <Menu.Root>
@@ -20,6 +22,7 @@ export function Dropdown({
           aria-label={label}
           className="dropdown-content"
           align={align}
+          side={side}
           sideOffset={6}
         >
           {children}

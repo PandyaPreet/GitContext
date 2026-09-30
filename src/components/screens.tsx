@@ -19,11 +19,13 @@ export function ProfilesScreen({
   workspace: w,
   edit,
   activate,
+  details,
   manage,
 }: {
   workspace: Workspace;
   edit: (p?: Profile) => void;
   activate: (p: Profile) => void;
+  details: (p: Profile) => void;
   manage: (action: ManagementAction) => void;
 }) {
   const enabled = native && !w.busy && !w.loading;
@@ -85,6 +87,15 @@ export function ProfilesScreen({
                 <Button
                   size="sm"
                   variant="ghost"
+                  aria-label={`View ${p.name} details`}
+                  disabled={!enabled}
+                  onClick={() => details(p)}
+                >
+                  Details
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
                   disabled={!enabled}
                   onClick={() => void w.testProfile(p)}
                 >
@@ -123,6 +134,9 @@ export function ProfilesScreen({
                     </Button>
                   }
                 >
+                  <MenuItem disabled={!enabled} onSelect={() => details(p)}>
+                    View configuration…
+                  </MenuItem>
                   <MenuItem disabled={!enabled} onSelect={() => activate(p)}>
                     Reapply profile…
                   </MenuItem>

@@ -215,6 +215,22 @@ async fn plan_assignment(
     .await
 }
 #[tauri::command]
+async fn activate_profile(
+    app: tauri::AppHandle,
+    state: State<'_, Shared>,
+    profile_id: String,
+) -> Result<AppData> {
+    let data = work(&state, move |s| {
+        let plan = s.plan_activation(&profile_id)?;
+        s.apply(&plan.id)?;
+        Ok(s.data.clone())
+    })
+    .await?;
+    let _ = refresh_tray(&app, &data);
+    let _ = app.emit("context-changed", &data);
+    Ok(data)
+}
+#[tauri::command]
 async fn plan_activation(state: State<'_, Shared>, profile_id: String) -> Result<PlanView> {
     work(&state, move |s| s.plan_activation(&profile_id)).await
 }
@@ -297,6 +313,7 @@ async fn save_settings(state: State<'_, Shared>, settings: Settings) -> Result<A
 fn show(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.show();
+        let _ = window.unminimize();
         let _ = window.set_focus();
     }
 }
@@ -374,8 +391,23 @@ pub fn run() {
                     } else if id == "open" {
                         show(app);
                     } else if let Some(profile_id) = id.strip_prefix("profile:") {
-                        show(app);
-                        let _ = app.emit("activate-requested", profile_id.to_string());
+                        let app = app.clone();
+                        let profile_id = profile_id.to_string();
+                        // Run natively: switching must not show/focus the window
+                        // or depend on a visible, responsive webview.
+                        tauri::async_runtime::spawn(async move {
+                            let state = app.state::<Shared>();
+                            if let Err(error) =
+                                activate_profile(app.clone(), state, profile_id).await
+                            {
+                                let _ = app.emit("context-error", error);
+                                if let Some(tray) = app.tray_by_id("context") {
+                                    let _ = tray.set_tooltip(Some(
+                                        "Git Context · Switch failed. Open the app for details.",
+                                    ));
+                                }
+                            }
+                        });
                     }
                 })
                 .build(app)?;
@@ -416,12 +448,21 @@ pub fn run() {
             apply_assignment,
             plan_global_profile,
             plan_activation,
+            activate_profile,
             list_transactions,
             undo_assignment,
             verify_profile,
             launch_terminal,
             save_settings
         ])
-        .run(tauri::generate_context!())
-        .expect("Unable to start Git Context");
+        .build(tauri::generate_context!())
+        .expect("Unable to start Git Context")
+        .run(|_app, _event| {
+            // Dock/Finder reopen requests do not launch a second instance.
+            // Restore the existing window that CloseRequested hides for tray use.
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen { .. } = _event {
+                show(_app);
+            }
+        });
 }

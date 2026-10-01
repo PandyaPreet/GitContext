@@ -1,4 +1,4 @@
-## Git Context v0.1.3
+## Git Context v0.1.2
 
 More reliable GitLab SSH verification and the first release with signed in-app updates. This release includes all changes planned for v0.1.2, which was not published.
 

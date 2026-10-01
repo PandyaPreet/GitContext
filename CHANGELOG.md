@@ -2,6 +2,19 @@
 
 All notable changes to Git Context are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.1.2] - 2026-10-01
+
+### Fixed
+
+- GitLab SSH verification recognizes greetings with different capitalization, surrounding whitespace, and connection banners while still rejecting the wrong account.
+- Verification checks for a missing private key before connecting and explains DNS, connection, host-key, and SSH-agent failures more clearly.
+
+### Changed
+
+- Explicit SSH verification now follows GitShift's first-use trust policy: OpenSSH records unknown host keys in `known_hosts` and rejects changed host keys. This trusts the first connection rather than independently validating a new fingerprint.
+- Verification uses a fresh, isolated SSH connection with the selected profile key, custom host and port, a 15-second connection timeout, and a 30-second process limit.
+- Signed in-app update distribution uses the repository's configured Tauri signing keys. Users of v0.1.1 and earlier must manually install this updater-enabled release once; future signed releases can be installed through **Check for updates**. Updater signatures are separate from OS code signing and notarization.
+
 ## [0.1.1] - 2026-09-30
 
 ### Added
@@ -40,5 +53,6 @@ First public release.
 - Light and dark themes, launch at login, and a configurable startup view.
 - Installers for macOS (Apple Silicon and Intel), Windows (x64 and ARM64) and Linux (x64 and ARM64).
 
+[0.1.2]: https://github.com/PandyaPreet/GitContext/releases/tag/v0.1.2
 [0.1.1]: https://github.com/PandyaPreet/GitContext/releases/tag/v0.1.1
 [0.1.0]: https://github.com/PandyaPreet/GitContext/releases/tag/v0.1.0

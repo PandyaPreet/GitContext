@@ -127,9 +127,8 @@ jobs:
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # TAURI_SIGNING_PRIVATE_KEY (temporary key file) and its trimmed
-          # TAURI_SIGNING_PRIVATE_KEY_PASSWORD come from the step above; setting
-          # them here would override those normalized values.
+          # TAURI_SIGNING_PRIVATE_KEY is the normalized temporary file set above.
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           # AppImage bundling needs this on newer runners.
           NO_STRIP: ${{ runner.os == 'Linux' && 'true' || '' }}
         with:

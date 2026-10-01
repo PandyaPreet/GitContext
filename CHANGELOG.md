@@ -2,6 +2,14 @@
 
 All notable changes to Git Context are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.1.3] - 2026-10-01
+
+First published release with signed in-app updates. It includes all v0.1.2 changes; v0.1.2 was tagged but not published.
+
+### Fixed
+
+- Release signing trims trailing newlines from the updater key secrets, rejects malformed keys with a clear error, and passes the private key to the build through a temporary file.
+
 ## [0.1.2] - 2026-10-01
 
 First published release with signed in-app updates.

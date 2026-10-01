@@ -4,8 +4,12 @@ All notable changes to Git Context are documented here. The format follows [Keep
 
 ## [0.1.2] - 2026-10-01
 
+First published release with signed in-app updates.
+
 ### Fixed
 
+- Release signing checks the private key, its password, and the public key before building, so a wrong password or mismatched key pair fails in seconds with a clear message instead of after a full build.
+- Release signing trims pasted whitespace from the updater key secrets and password, and rejects malformed keys with a clear error.
 - GitLab SSH verification recognizes greetings with different capitalization, surrounding whitespace, and connection banners while still rejecting the wrong account.
 - Verification checks for a missing private key before connecting and explains DNS, connection, host-key, and SSH-agent failures more clearly.
 

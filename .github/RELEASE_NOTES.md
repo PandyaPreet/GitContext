@@ -1,6 +1,6 @@
 ## Git Context v0.1.2
 
-More reliable GitLab SSH verification and signed in-app update distribution.
+More reliable GitLab SSH verification and the first release with signed in-app updates.
 
 Git Context helps you switch your global Git author and SSH identity between work, personal, and client profiles. Repository-local overrides and HTTPS credentials remain independent.
 

@@ -1,6 +1,6 @@
 ## Git Context v0.1.2
 
-More reliable GitLab SSH verification and the first release with signed in-app updates. This release includes all changes planned for v0.1.2, which was not published.
+More reliable GitLab SSH verification and the first release with signed in-app updates.
 
 Git Context helps you switch your global Git author and SSH identity between work, personal, and client profiles. Repository-local overrides and HTTPS credentials remain independent.
 
@@ -14,7 +14,7 @@ Git Context helps you switch your global Git author and SSH identity between wor
 
 ### Updating from v0.1.1 or earlier
 
-**Download and install v0.1.3 manually once.** Older builds were distributed without an updater public key and cannot install this first signed update through the app.
+**Download and install v0.1.2 manually once.** Older builds were distributed without an updater public key and cannot install this first signed update through the app.
 
 After installing this updater-enabled release, open **Quick switch & app updates → Check for updates** for future releases. When an update is available, review its notes, click **Install update**, and follow the restart instructions. Linux users should use the AppImage for the in-app updater; package installations can be updated with the matching package download.
 

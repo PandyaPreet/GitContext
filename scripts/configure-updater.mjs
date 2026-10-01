@@ -1,8 +1,11 @@
 // CI-only overlay: no signing secret is ever written into frontend/config files.
-import { appendFileSync, mkdtempSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { appendFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 const pubkey = process.env.TAURI_UPDATER_PUBLIC_KEY?.trim();
 const privateKey = process.env.TAURI_SIGNING_PRIVATE_KEY?.trim();
+const password = process.env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD?.trim() ?? "";
 if (!pubkey && !privateKey) {
   console.log("Updater signing not configured; building without signed updates.");
   process.exit(0);
@@ -77,4 +80,7 @@ if (process.env.GITHUB_ENV && process.env.RUNNER_TEMP) {
   const keyPath = join(directory, "updater.key");
   writeFileSync(keyPath, privateKey, { mode: 0o600 });
   appendFileSync(process.env.GITHUB_ENV, `TAURI_SIGNING_PRIVATE_KEY=${keyPath}\n`);
+  // Pass the trimmed password on too; a pasted trailing newline breaks it.
+  if (/[\r\n]/.test(password)) throw new Error("TAURI_SIGNING_PRIVATE_KEY_PASSWORD must be a single line.");
+  appendFileSync(process.env.GITHUB_ENV, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD=${password}\n`);
 }

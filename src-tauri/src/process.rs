@@ -16,6 +16,15 @@ pub struct Output {
 
 // Output goes to anonymous temporary files, never to logs. This avoids pipe deadlock.
 pub fn run(program: &str, args: &[&str], cwd: Option<&Path>) -> Result<Output> {
+    run_with_timeout(program, args, cwd, Duration::from_secs(18))
+}
+
+pub fn run_with_timeout(
+    program: &str,
+    args: &[&str],
+    cwd: Option<&Path>,
+    timeout: Duration,
+) -> Result<Output> {
     let stdout = tempfile::tempfile().map_err(|_| "Cannot allocate process output")?;
     let stderr = tempfile::tempfile().map_err(|_| "Cannot allocate process output")?;
     let mut command = Command::new(program);
@@ -72,7 +81,7 @@ pub fn run(program: &str, args: &[&str], cwd: Option<&Path>) -> Result<Output> {
         let too_large = [&stdout, &stderr]
             .iter()
             .any(|f| f.metadata().map(|m| m.len() > 1_048_576).unwrap_or(true));
-        if start.elapsed() > Duration::from_secs(18) || too_large {
+        if start.elapsed() > timeout || too_large {
             let _ = child.kill();
             let _ = child.wait();
             return Err(format!("{program} exceeded its time or output limit"));

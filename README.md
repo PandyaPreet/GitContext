@@ -102,7 +102,7 @@ Git Context has no servers of its own. It talks only to your Git provider (GitHu
 - **Undo anything.** Every applied change is journaled and can be rolled back.
 - **Careful with your config.** Git Context edits only its own clearly marked blocks. It refuses to change setups it can't reason about safely (`Include`/`Match` rules, `core.sshCommand`, `url.*.insteadOf`) and asks you to review them instead.
 - **Crash-safe writes.** Files are written atomically and under a lock, so an interrupted write can't leave a half-written config.
-- **Strict host checking.** Managed SSH aliases use `IdentitiesOnly yes` and `StrictHostKeyChecking yes`, so only the chosen key is offered and only to a known host.
+- **Strict host checking.** Managed SSH aliases use `IdentitiesOnly yes` and `StrictHostKeyChecking yes`, so only the chosen key is offered and only to a known host. Explicit **Verify** checks use the same first-use trust policy as GitShift (`accept-new`): OpenSSH saves a previously unknown host key in `known_hosts`, but refuses a changed host key. Verification opens a fresh connection using only the selected profile key and checks the returned account name. This trusts the first connection; it does not independently validate a new host fingerprint.
 
 ### Reporting a vulnerability
 

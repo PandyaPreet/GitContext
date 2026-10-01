@@ -193,32 +193,63 @@ fn validate_resolved(output: &str, profile: &Profile) -> Result<()> {
     Ok(())
 }
 
+// Ignore user/system SSH rules and multiplexed sessions: this is a fresh test of
+// exactly one profile key, not a test of whichever identity a host alias resolves.
+fn verification_args(profile: &Profile) -> Vec<String> {
+    let mut args: Vec<String> = [
+        "-F",
+        "none",
+        "-T",
+        "-o",
+        "BatchMode=yes",
+        // Match GitShift's first-use trust policy. Changed keys still fail closed.
+        "-o",
+        "StrictHostKeyChecking=accept-new",
+        "-o",
+        "ConnectTimeout=15",
+        "-o",
+        "ConnectionAttempts=1",
+        "-o",
+        "IdentitiesOnly=yes",
+        "-o",
+        "PreferredAuthentications=publickey",
+        "-o",
+        "CertificateFile=none",
+        "-o",
+        "PKCS11Provider=none",
+        "-o",
+        "ControlMaster=no",
+        "-o",
+        "ControlPath=none",
+        "-o",
+        "ControlPersist=no",
+    ]
+    .into_iter()
+    .map(str::to_string)
+    .collect();
+    args.extend([
+        "-i".into(),
+        profile.private_key_path.replace('\\', "/"),
+        "-p".into(),
+        profile.ssh_port.to_string(),
+        format!("git@{}", profile.host),
+    ]);
+    args
+}
+
 pub fn verify(profile: &Profile) -> Result<Verification> {
     validate_profile(profile)?;
-    // An isolated configuration prevents ProxyCommand/Match exec in user config.
-    // Explicit IdentityFile and IdentitiesOnly keep verification profile-specific.
-    let out = process::run(
+    if !Path::new(&profile.private_key_path).is_file() {
+        return Err("The selected SSH private key is missing. Assign an existing key to this profile and retry.".into());
+    }
+    let args = verification_args(profile);
+    let out = process::run_with_timeout(
         "ssh",
-        &[
-            "-F",
-            if cfg!(windows) { "NUL" } else { "/dev/null" },
-            "-T",
-            "-o",
-            "BatchMode=yes",
-            "-o",
-            "StrictHostKeyChecking=yes",
-            "-o",
-            "ConnectTimeout=10",
-            "-o",
-            "IdentitiesOnly=yes",
-            "-i",
-            &profile.private_key_path,
-            "-p",
-            &profile.ssh_port.to_string(),
-            &format!("git@{}", profile.host),
-        ],
+        &args.iter().map(String::as_str).collect::<Vec<_>>(),
         None,
+        std::time::Duration::from_secs(30),
     )?;
+    // GitHub deliberately returns a nonzero exit code on successful authentication.
     let text = format!("{}\n{}", out.stdout, out.stderr);
     Ok(profile
         .provider
@@ -245,6 +276,62 @@ mod tests {
             color: "mint".into(),
         }
     }
+    #[test]
+    fn verification_resolves_only_selected_key_and_endpoint() {
+        // -G resolves without connecting or reading/writing the developer's config.
+        let dir = tempfile::tempdir().unwrap();
+        let mut p = profile();
+        p.provider = crate::provider::GitProvider::Gitlab;
+        p.host = "code.example.test".into();
+        p.ssh_port = 2222;
+        p.private_key_path = dir.path().join("key with spaces").to_string_lossy().into();
+        std::fs::write(
+            &p.private_key_path,
+            "fixture: resolution only, never used for authentication",
+        )
+        .unwrap();
+        let mut args = verification_args(&p);
+        args.insert(0, "-G".into());
+        let out = process::run(
+            "ssh",
+            &args.iter().map(String::as_str).collect::<Vec<_>>(),
+            Some(dir.path()),
+        )
+        .unwrap();
+        assert_eq!(out.code, 0, "{}", out.stderr);
+        let values = |key: &str| {
+            out.stdout
+                .lines()
+                .filter_map(|line| {
+                    line.split_once(' ')
+                        .filter(|(name, _)| *name == key)
+                        .map(|(_, value)| value)
+                })
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(values("hostname"), ["code.example.test"]);
+        assert_eq!(values("port"), ["2222"]);
+        assert_eq!(values("user"), ["git"]);
+        assert_eq!(
+            values("identityfile"),
+            [p.private_key_path.replace('\\', "/")]
+        );
+        assert_eq!(values("stricthostkeychecking"), ["accept-new"]);
+        assert_eq!(values("identitiesonly"), ["yes"]);
+        assert_eq!(values("preferredauthentications"), ["publickey"]);
+        assert_eq!(values("certificatefile"), ["none"]);
+        assert_eq!(values("controlmaster"), ["false"]);
+        assert!(values("controlpath").iter().all(|value| *value == "none"));
+    }
+
+    #[test]
+    fn verification_rejects_missing_key_before_connecting() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut p = profile();
+        p.private_key_path = dir.path().join("missing").to_string_lossy().into();
+        assert!(verify(&p).err().unwrap().contains("private key is missing"));
+    }
+
     #[test]
     fn preserves_existing_config() {
         let original = "# user notes\nHost example\n  HostName example.com\n";

@@ -65,20 +65,31 @@ impl GitProvider {
         })
     }
     pub fn verification(self, text: &str, expected: &str, host: &str) -> Verification {
-        let user = text
-            .lines()
-            .find_map(|line| match self {
-                Self::Github => line
-                    .strip_prefix("Hi ")
-                    .and_then(|v| v.split_once("! You've successfully authenticated"))
-                    .map(|(user, _)| user),
-                Self::Gitlab => line
-                    .strip_prefix("Welcome to GitLab, ")
-                    .and_then(|v| v.strip_suffix('!'))
-                    .map(|v| v.strip_prefix('@').unwrap_or(v)),
-            })
-            .filter(|user| self.valid_username(user))
-            .map(str::to_string);
+        let user = text.lines().find_map(|line| {
+            let line = line.trim();
+            let lower = line.to_ascii_lowercase();
+            let prefix = match self {
+                Self::Github => "hi ",
+                Self::Gitlab => "welcome to gitlab, ",
+            };
+            if !lower.starts_with(prefix) {
+                return None;
+            }
+            let (username, suffix) = line[prefix.len()..].split_once('!')?;
+            if self == Self::Github
+                && !suffix
+                    .to_ascii_lowercase()
+                    .starts_with(" you've successfully authenticated")
+            {
+                return None;
+            }
+            let username = if self == Self::Gitlab {
+                username.strip_prefix('@').unwrap_or(username)
+            } else {
+                username
+            };
+            self.valid_username(username).then(|| username.to_string())
+        });
         match user {
             Some(user) => {
                 let success = user.eq_ignore_ascii_case(expected);
@@ -93,9 +104,22 @@ impl GitProvider {
                 }
             }
             None => {
-                let message = if text.contains("Host key verification failed") {
+                let lower = text.to_ascii_lowercase();
+                let message = if lower.contains("remote host identification has changed") {
+                    format!("The SSH host key for {host} has changed. Connection blocked. Verify the new fingerprint with your provider or administrator before updating known_hosts.")
+                } else if lower.contains("host key verification failed") {
                     format!("Host identity is not trusted. Verify {host}'s SSH host fingerprint with your provider or administrator, then add it to known_hosts outside the app.")
-                } else if text.contains("Permission denied") {
+                } else if lower.contains("could not resolve hostname") {
+                    format!("Cannot resolve {host}. Check the profile hostname, DNS, and VPN connection.")
+                } else if lower.contains("connection timed out")
+                    || lower.contains("operation timed out")
+                    || lower.contains("connection refused")
+                    || lower.contains("network is unreachable")
+                {
+                    format!("Cannot reach SSH at {host}. Check the configured port, network, firewall, and VPN.")
+                } else if lower.contains("sign_and_send_pubkey: signing failed") {
+                    "Your SSH agent could not sign with this key. Unlock or reload the selected key in your SSH agent and retry.".into()
+                } else if lower.contains("permission denied") {
                     format!("{} rejected this key. Add its public key to the expected account and load encrypted keys into your SSH agent.", self.label())
                 } else {
                     format!("Could not verify SSH at {host}. Check connectivity, the configured SSH port, trusted host keys, and your SSH agent.")
@@ -528,6 +552,70 @@ mod tests {
                 .success
         );
     }
+    #[test]
+    fn gitlab_verification_handles_banners_case_and_whitespace() {
+        for greeting in [
+            "Welcome to GitLab, @Alice.Dev_2!",
+            "  Welcome to GitLab, @Alice.Dev_2!  \r\n",
+            "Warning: Permanently added host to known hosts.\nWELCOME TO GITLAB, @Alice.Dev_2!\n",
+            "Welcome to GitLab, @Alice.Dev_2! Session closed.",
+        ] {
+            let result = GitProvider::Gitlab.verification(greeting, "alice.dev_2", "gitlab.com");
+            assert!(result.success, "{greeting}");
+            assert_eq!(result.authenticated_as.as_deref(), Some("Alice.Dev_2"));
+            assert!(
+                !GitProvider::Gitlab
+                    .verification(greeting, "bob", "gitlab.com")
+                    .success
+            );
+        }
+        for invalid in [
+            "Welcome to GitLab, @!",
+            "Welcome to GitLab, @alice dev!",
+            "authenticated via ssh key",
+            "Permission denied (publickey).",
+            "Hi alice! You've successfully authenticated",
+        ] {
+            assert!(
+                !GitProvider::Gitlab
+                    .verification(invalid, "alice", "gitlab.com")
+                    .success
+            );
+        }
+    }
+
+    #[test]
+    fn verification_explains_actionable_failures_without_raw_output() {
+        for (output, expected) in [
+            (
+                "WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!\nHost key verification failed.",
+                "has changed",
+            ),
+            ("Host key verification failed.", "not trusted"),
+            (
+                "ssh: Could not resolve hostname code.test",
+                "Cannot resolve",
+            ),
+            (
+                "connect to host code.test port 2222: Connection refused",
+                "Cannot reach",
+            ),
+            (
+                "sign_and_send_pubkey: signing failed: agent refused operation",
+                "agent could not sign",
+            ),
+            (
+                "git@code.test: Permission denied (publickey).",
+                "rejected this key",
+            ),
+        ] {
+            let result = GitProvider::Gitlab.verification(output, "alice", "code.test");
+            assert!(!result.success);
+            assert!(result.authenticated_as.is_none());
+            assert!(result.message.contains(expected), "{}", result.message);
+        }
+    }
+
     #[test]
     fn parses_account_lookups() {
         let github = parse_account(

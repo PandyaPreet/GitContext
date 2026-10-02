@@ -118,3 +118,24 @@ fn launch_native(kind: &str, path: &Path) -> Result<()> {
         _ => Err("Unsupported launcher on this platform".into()),
     }
 }
+
+/// macOS Dock/application-menu Quit keeps the tray service alive. Explicit
+/// app.exit/app.restart requests carry a code and must be allowed through.
+pub fn handle_background_exit(app: &tauri::AppHandle, event: &tauri::RunEvent) {
+    #[cfg(target_os = "macos")]
+    if let tauri::RunEvent::ExitRequested {
+        code: None, api, ..
+    } = event
+    {
+        use tauri::Manager;
+        // Never trap the user in a background process without a usable tray.
+        if app.tray_by_id("context").is_some() {
+            api.prevent_exit();
+            for window in app.webview_windows().values() {
+                let _ = window.hide();
+            }
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    let _ = (app, event);
+}

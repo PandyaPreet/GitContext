@@ -342,3 +342,11 @@ The updater endpoint is the public GitHub release's `latest.json`. Existing vers
 Git Context is licensed under the [MIT License](LICENSE).
 
 Copyright (c) 2026 Git Context. Third-party dependencies retain their own licenses and notices.
+
+### Keep Git Context in the macOS menu bar
+
+Closing the window, choosing Quit from the Dock or application menu, or pressing
+Cmd+Q hides the windows and keeps the menu-bar profile switcher running. Use
+**Open Git Context** in the menu bar or click the Dock icon to reopen the window.
+To stop the app entirely, choose **Quit Git Context Completely** from its menu-bar
+menu. Force Quit still stops the process. Windows and Linux exit behaviour is unchanged.

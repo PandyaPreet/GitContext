@@ -1,24 +1,24 @@
-## Git Context v0.1.2
+## Git Context v0.1.3
 
-More reliable GitLab SSH verification and the first release with signed in-app updates.
-
-Git Context helps you switch your global Git author and SSH identity between work, personal, and client profiles. Repository-local overrides and HTTPS credentials remain independent.
+Keep your profile switcher available in the macOS menu bar after quitting from the Dock.
 
 ### What's new
 
-- **Smoother first-time SSH verification.** Explicit verification now records a previously unknown host key in `known_hosts`, matching GitShift. Changed host keys remain blocked. This trusts the first connection; it does not independently validate a new fingerprint.
-- **More reliable GitLab greeting detection.** Handles capitalization, surrounding whitespace, and connection banners while still checking the authenticated account against your profile username.
-- **Fresh, profile-specific authentication.** Verification ignores user/system SSH rules and connection reuse, uses the selected key, and respects custom GitLab hosts and ports.
-- **Clearer troubleshooting.** Missing keys, DNS failures, refused connections, changed host keys, and SSH-agent signing failures have more useful messages. Verification allows 15 seconds to connect and up to 30 seconds overall.
-- **Signed updates.** Release builds use the configured Tauri signing key to produce verifiable updater downloads and the update manifest.
+- **Stay available in the menu bar.** Dock Quit, application-menu Quit, and Cmd+Q now hide Git Context's windows while keeping the profile switcher running.
+- **A clear full-exit action.** Choose **Quit Git Context Completely** from the menu-bar menu to stop the app entirely. Force Quit still stops the process.
+- **Reopen when needed.** Click the Dock icon or choose **Open Git Context** from the menu bar to restore the main window.
 
-### Updating from v0.1.1 or earlier
+Windows and Linux exit behaviour is unchanged. Your active Git/SSH configuration remains applied when the app exits.
 
-**Download and install v0.1.2 manually once.** Older builds were distributed without an updater public key and cannot install this first signed update through the app.
+### How to update
 
-After installing this updater-enabled release, open **Quick switch & app updates → Check for updates** for future releases. When an update is available, review its notes, click **Install update**, and follow the restart instructions. Linux users should use the AppImage for the in-app updater; package installations can be updated with the matching package download.
+**Using the signed v0.1.2 release?** Open **Quick switch & app updates → Check for updates**, then choose **Install update** when v0.1.3 is available.
 
-Updater signatures verify update authenticity. They are separate from macOS notarization and Windows publisher certificates; this release does not add those certificates.
+After installation, choose **Quit Git Context Completely** from the menu-bar menu (called **Quit** in v0.1.2), then reopen the app. Dock Quit and Cmd+Q keep the new version running in the background, so use the menu-bar full-exit action when a restart is required.
+
+**Using v0.1.1 or an unsigned build?** Download and install v0.1.3 manually once to enable future signed updates. Linux users should use the AppImage for in-app updates; package installations can use the matching package download.
+
+Updater signatures are separate from macOS notarization and Windows publisher certificates; this release does not add those certificates.
 
 ### Downloads
 

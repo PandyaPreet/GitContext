@@ -1,24 +1,25 @@
 ## Git Context v0.1.3
 
-Keep your profile switcher available in the macOS menu bar after quitting from the Dock.
+Fixes updater permissions and misleading installation errors.
 
-### What's new
+### What's fixed
 
-- **Stay available in the menu bar.** Dock Quit, application-menu Quit, and Cmd+Q now hide Git Context's windows while keeping the profile switcher running.
-- **A clear full-exit action.** Choose **Quit Git Context Completely** from the menu-bar menu to stop the app entirely. Force Quit still stops the process.
-- **Reopen when needed.** Click the Dock icon or choose **Open Git Context** from the menu bar to restore the main window.
+- The main window now has the resource-close permission needed to release updater resources.
+- A cleanup failure no longer turns a successful installation into an “Update failed” message.
+- Repeated checks and window teardown safely handle cleanup failures.
+- After installation, the restart message stays visible. Use **Quit Git Context Completely** (or **Quit** in older versions) from the tray/menu bar, then reopen the app.
 
-Windows and Linux exit behaviour is unchanged. Your active Git/SSH configuration remains applied when the app exits.
+### macOS menu-bar behaviour
 
-### How to update
+Dock Quit, application-menu Quit, and Cmd+Q hide the windows while keeping the profile switcher running. Use **Quit Git Context Completely** from the menu bar to fully exit. Click the Dock icon or choose **Open Git Context** to reopen the window.
 
-**Using the signed v0.1.2 release?** Open **Quick switch & app updates → Check for updates**, then choose **Install update** when v0.1.3 is available.
+### Updating
 
-After installation, choose **Quit Git Context Completely** from the menu-bar menu (called **Quit** in v0.1.2), then reopen the app. Dock Quit and Cmd+Q keep the new version running in the background, so use the menu-bar full-exit action when a restart is required.
+If you already installed the earlier v0.1.3 build, manually reinstall the corrected v0.1.3 installer. The updater does not offer a same-version replacement.
 
-**Using v0.1.1 or an unsigned build?** Download and install v0.1.3 manually once to enable future signed updates. Linux users should use the AppImage for in-app updates; package installations can use the matching package download.
+If an older version reports `plugin:resources|close not allowed by ACL` after installing, fully quit from the tray/menu bar and reopen first: the installation may already have completed. If it has not, manually install v0.1.3 from Assets. Existing installations cannot receive permission changes until the new build is installed.
 
-Updater signatures are separate from macOS notarization and Windows publisher certificates; this release does not add those certificates.
+Unsigned builds require a manual installation. Linux package users can update with the matching package; AppImage users can use the in-app updater. Updater signing does not add macOS notarization or Windows publisher certificates.
 
 ### Downloads
 

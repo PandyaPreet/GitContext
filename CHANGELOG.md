@@ -4,6 +4,12 @@ All notable changes to Git Context are documented here. The format follows [Keep
 
 ## [0.1.3] - 2026-10-02
 
+### Fixed
+
+- Grant the main window the resource-close permission required by the updater.
+- Keep successful installations successful even if resource cleanup fails; handle cleanup failures during checks and window teardown without unhandled rejections.
+- Preserve the restart notice after installation instead of checking again from the old running version. Clarify that restarting requires the tray/menu-bar full-exit action.
+
 ### Changed
 
 - On macOS, Dock Quit, application-menu Quit, and Cmd+Q hide the app windows while keeping the menu-bar profile switcher running.

@@ -4,16 +4,26 @@ import { api, native } from "../lib/api";
 import { Button } from "./ui/button";
 import { message } from "../lib/utils";
 
+// Cleanup must never turn a successful install/check into an apparent failure.
+async function releaseUpdate(update: Update | null | undefined) {
+  try {
+    await update?.close();
+  } catch {
+    // The backend may already have released the resource during shutdown.
+  }
+}
+
 export function Updates() {
   const [update, setUpdate] = useState<Update | null>(null);
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
   const [shortcutError, setShortcutError] = useState<string | null>(null);
   const lock = useRef(false);
+  const installed = useRef(false);
   const current = useRef<Update | null>(null);
   const mounted = useRef(true);
   const checkUpdates = useCallback(async () => {
-    if (!native || lock.current) return;
+    if (!native || lock.current || installed.current) return;
     lock.current = true;
     setBusy(true);
     try {
@@ -26,10 +36,10 @@ export function Updates() {
       }
       const next = await check({ timeout: 15000 });
       if (!mounted.current) {
-        await next?.close();
+        await releaseUpdate(next);
         return;
       }
-      await current.current?.close();
+      await releaseUpdate(current.current);
       current.current = next;
       setUpdate(next);
       setStatus(
@@ -59,7 +69,7 @@ export function Updates() {
       mounted.current = false;
       clearTimeout(timer);
       clearInterval(interval);
-      void current.current?.close();
+      void releaseUpdate(current.current);
       current.current = null;
     };
   }, [checkUpdates]);
@@ -106,9 +116,10 @@ export function Updates() {
                     setStatus("Download complete. Installing signed update…");
                 });
                 setStatus(
-                  "Update installed. Quit and reopen Git Context to use the new version.",
+                  "Update installed. Choose Quit Git Context Completely (or Quit in older versions) from the tray/menu bar, then reopen Git Context.",
                 );
-                await update.close();
+                installed.current = true;
+                await releaseUpdate(update);
                 current.current = null;
                 setUpdate(null);
               } catch (e) {

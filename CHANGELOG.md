@@ -2,6 +2,14 @@
 
 All notable changes to Git Context are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.1.3] - 2026-10-02
+
+### Changed
+
+- On macOS, Dock Quit, application-menu Quit, and Cmd+Q hide the app windows while keeping the menu-bar profile switcher running.
+- The tray exit action is labelled **Quit Git Context Completely** to distinguish a full exit from hiding the windows. Explicit application exits and updater restarts remain allowed.
+- Dock/Finder reopening continues to restore the main window. Windows and Linux exit behaviour is unchanged; Force Quit still terminates the process.
+
 ## [0.1.2] - 2026-10-01
 
 First published release with signed in-app updates.
@@ -57,6 +65,7 @@ First public release.
 - Light and dark themes, launch at login, and a configurable startup view.
 - Installers for macOS (Apple Silicon and Intel), Windows (x64 and ARM64) and Linux (x64 and ARM64).
 
+[0.1.3]: https://github.com/PandyaPreet/GitContext/releases/tag/v0.1.3
 [0.1.2]: https://github.com/PandyaPreet/GitContext/releases/tag/v0.1.2
 [0.1.1]: https://github.com/PandyaPreet/GitContext/releases/tag/v0.1.1
 [0.1.0]: https://github.com/PandyaPreet/GitContext/releases/tag/v0.1.0

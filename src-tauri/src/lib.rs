@@ -453,7 +453,13 @@ fn refresh_tray(app: &tauri::AppHandle, data: &AppData) -> tauri::Result<()> {
         true,
         None::<&str>,
     )?)?;
-    menu.append(&MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?)?;
+    menu.append(&MenuItem::with_id(
+        app,
+        "quit",
+        "Quit Git Context Completely",
+        true,
+        None::<&str>,
+    )?)?;
     if let Some(tray) = app.tray_by_id("context") {
         tray.set_menu(Some(menu))?;
         let name = data
@@ -602,6 +608,7 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("Unable to start Git Context")
         .run(|_app, _event| {
+            platform::handle_background_exit(_app, &_event);
             // Dock/Finder reopen requests do not launch a second instance.
             // Restore the existing window that CloseRequested hides for tray use.
             #[cfg(target_os = "macos")]
